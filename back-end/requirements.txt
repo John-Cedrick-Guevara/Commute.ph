@@ -33,6 +33,9 @@ opentelemetry-proto==1.45.1
 opentelemetry-sdk==1.45.1
 opentelemetry-semantic-conventions==0.66b1
 protobuf==7.36.2
+psycopg==3.3.6
+psycopg-binary==3.3.6
+psycopg2-binary==2.9.13
 pydantic==2.14.1
 pydantic-extra-types==2.11.1
 pydantic-settings==2.16.1
@@ -47,6 +50,7 @@ rich-toolkit==0.20.6
 rignore==0.8.1
 sentry-sdk==2.73.0
 shellingham==1.5.4
+SQLAlchemy==2.1.6
 starlette==1.10.0
 truststore==0.10.5
 typer==0.27.3
