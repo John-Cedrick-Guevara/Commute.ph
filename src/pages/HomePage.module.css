@@ -1,0 +1,263 @@
+.page { min-height: calc(100vh - 64px); }
+
+/* ---- HERO ---- */
+.hero {
+  padding: clamp(32px, 6vw, 72px) clamp(16px, 5vw, 64px) 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+    min-height: calc(100vh - 64px - 120px);
+  }
+}
+
+/* Left column */
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.eyebrow::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--yellow);
+  display: inline-block;
+}
+
+.heading {
+  font-size: clamp(36px, 6vw, 60px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -1px;
+  color: var(--navy);
+}
+
+.highlight {
+  position: relative;
+  display: inline-block;
+}
+
+.highlight::after {
+  content: '';
+  position: absolute;
+  bottom: 4px; left: 0;
+  width: 100%; height: 8px;
+  background: var(--yellow);
+  border-radius: 4px;
+  z-index: -1;
+  opacity: 0.7;
+}
+
+.subtext {
+  font-size: 15px;
+  color: var(--gray);
+  font-weight: 600;
+  line-height: 1.6;
+  max-width: 380px;
+}
+
+.footnote {
+  font-size: 11px;
+  color: var(--gray);
+  font-weight: 500;
+}
+
+/* Right column */
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scene {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Clouds */
+.cloud1,
+.cloud2 {
+  position: absolute;
+  border-radius: 50px;
+  background: rgba(255, 255, 255, 0.7);
+  animation: cloudDrift 8s ease-in-out infinite;
+}
+
+.cloud1 { width: 70px; height: 28px; top: 10px; left: 5%; }
+.cloud2 { width: 50px; height: 22px; top: 30px; left: 40%; animation-delay: 2s; animation-duration: 12s; }
+
+@keyframes cloudDrift {
+  0%, 100% { transform: translateX(0); opacity: 0.7; }
+  50% { transform: translateX(20px); opacity: 1; }
+}
+
+/* Speech bubble */
+.bubble {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: var(--white);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
+  box-shadow: var(--shadow-md);
+  animation: floatBubble 3s ease-in-out infinite;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -6px; left: 20px;
+  width: 12px; height: 12px;
+  background: var(--white);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+@keyframes floatBubble {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Road */
+.road {
+  height: 40px;
+  background: #D4CFC4;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: 8px;
+  position: relative;
+}
+
+.roadMarkings {
+  position: absolute;
+  top: 50%;
+  width: 200%;
+  display: flex;
+  gap: 24px;
+  animation: roadScroll 1.5s linear infinite;
+}
+
+@keyframes roadScroll {
+  from { transform: translateY(-50%) translateX(0); }
+  to   { transform: translateY(-50%) translateX(-50%); }
+}
+
+.dash {
+  width: 36px; height: 4px;
+  background: var(--white);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Taglines */
+.taglines {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tagline {
+  font-size: clamp(16px, 2.5vw, 22px);
+  font-weight: 800;
+  color: var(--navy);
+  opacity: 0.2;
+  text-align: center;
+}
+
+.taglineAccent { color: var(--orange); opacity: 0.45; }
+
+/* Mobile: jeepney goes on top */
+@media (max-width: 899px) {
+  .right { order: -1; }
+  .scene { max-width: 340px; }
+  .taglines { display: none; }
+}
+
+/* ---- STRIP ---- */
+.strip {
+  background: var(--navy);
+  margin-top: 64px;
+  padding: 28px clamp(16px, 5vw, 64px);
+}
+
+.stripInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr 1fr 1fr;
+  gap: 32px;
+  align-items: center;
+}
+
+@media (max-width: 700px) {
+  .stripInner {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.headline {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--white);
+  line-height: 1.25;
+}
+
+.headline span { color: var(--yellow); }
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.featureIcon {
+  width: 36px; height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.featureTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--white);
+  margin-bottom: 2px;
+}
+
+.featureSub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+}

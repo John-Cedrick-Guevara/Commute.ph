@@ -1,0 +1,226 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 35, 64, 0.6);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeBg 0.3s ease;
+}
+
+@keyframes fadeBg {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.card {
+  background: var(--white);
+  border-radius: 28px;
+  padding: clamp(24px, 4vw, 40px);
+  max-width: 480px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.jeepneyArrival {
+  text-align: center;
+  font-size: 40px;
+  margin-bottom: 8px;
+  animation: jeeArrive 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes jeeArrive {
+  from { transform: translateX(-60px) scale(0.8); opacity: 0; }
+  to   { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.transportBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--yellow-light);
+  border: 1.5px solid var(--yellow);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--navy-mid);
+  margin-bottom: 16px;
+}
+
+.fare {
+  font-size: clamp(52px, 12vw, 72px);
+  font-weight: 900;
+  color: var(--navy);
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.pesoSign {
+  font-size: 0.55em;
+  vertical-align: top;
+  margin-top: 8px;
+  color: var(--orange);
+}
+
+.fareLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray);
+  margin-top: 6px;
+}
+
+.discountTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(61, 184, 122, 0.12);
+  color: var(--green);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 8px;
+}
+
+/* Route */
+.route {
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin: 20px 0;
+}
+
+.routePoint {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.connector {
+  width: 2px;
+  height: 20px;
+  background: var(--gray-light);
+  margin-left: 13px;
+  border-radius: 1px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.dotStart { background: var(--yellow); }
+.dotEnd   { background: var(--navy); }
+
+.routePointLabel {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.routePointName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-top: 2px;
+}
+
+/* Breakdown */
+.breakdown {
+  border-top: 1.5px solid var(--gray-light);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.breakdownTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-bottom: 10px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+
+.rowLabel {
+  color: var(--gray);
+  font-weight: 600;
+}
+
+.total {
+  font-weight: 800;
+  font-size: 15px;
+  border-top: 1.5px solid var(--gray-light);
+  padding-top: 10px;
+  margin-top: 6px;
+}
+
+.green { color: var(--green); }
+
+/* Disclaimer */
+.disclaimer {
+  font-size: 10px;
+  color: var(--gray);
+  font-weight: 500;
+  text-align: center;
+  margin-top: 14px;
+  line-height: 1.6;
+}
+
+.disclaimer strong { color: var(--navy); font-weight: 700; }
+.source { display: block; margin-top: 4px; }
+
+/* Close button */
+.closeBtn {
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--navy);
+  background: transparent;
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 800;
+  transition: all 0.2s;
+}
+
+.closeBtn:hover {
+  background: var(--navy);
+  color: var(--white);
+}

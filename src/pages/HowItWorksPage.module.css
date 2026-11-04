@@ -1,0 +1,121 @@
+.page {
+  padding: clamp(40px, 8vw, 80px) clamp(16px, 5vw, 64px);
+}
+
+.inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 12px;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--yellow);
+  display: inline-block;
+}
+
+.heading {
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 900;
+  color: var(--navy);
+  letter-spacing: -1px;
+  margin-bottom: 12px;
+}
+
+.sub {
+  font-size: 15px;
+  color: var(--gray);
+  font-weight: 600;
+  margin-bottom: 40px;
+}
+
+/* Steps */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.step {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.num {
+  width: 36px; height: 36px;
+  background: var(--yellow);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 900;
+  flex-shrink: 0;
+  color: var(--navy);
+}
+
+.content { flex: 1; }
+
+.stepTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+
+.stepBody {
+  font-size: 14px;
+  color: var(--gray);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* Disclaimer */
+.disclaimer {
+  background: rgba(232, 76, 76, 0.07);
+  border: 1.5px solid rgba(232, 76, 76, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  font-size: 13px;
+  color: var(--navy);
+  font-weight: 600;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.disclaimer strong { color: var(--red); }
+
+/* Back button */
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--navy);
+  background: var(--white);
+  border: 2px solid var(--navy);
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+
+.backBtn:hover {
+  background: var(--navy);
+  color: var(--white);
+}

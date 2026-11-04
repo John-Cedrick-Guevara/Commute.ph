@@ -1,0 +1,59 @@
+/* ===================== RESET & BASE ===================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --yellow:       #F5C400;
+  --yellow-light: #FFF3B0;
+  --yellow-dark:  #D4A800;
+  --navy:         #1A2340;
+  --navy-mid:     #2A3558;
+  --cream:        #FAF7F0;
+  --cream-dark:   #F0EBE0;
+  --sky:          #5BB8F5;
+  --sky-light:    #D6EEFF;
+  --orange:       #F07B30;
+  --green:        #3DB87A;
+  --red:          #E84C4C;
+  --gray:         #8A93A8;
+  --gray-light:   #E8ECF4;
+  --white:        #FFFFFF;
+
+  --shadow-sm: 0 2px 8px rgba(26,35,64,0.08);
+  --shadow-md: 0 4px 20px rgba(26,35,64,0.12);
+  --shadow-lg: 0 8px 40px rgba(26,35,64,0.18);
+  --radius:    16px;
+  --radius-sm: 10px;
+
+  --font: 'Nunito', 'Segoe UI', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background-color: var(--cream);
+  color: var(--navy);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+a { text-decoration: none; color: inherit; }
+button { font-family: var(--font); cursor: pointer; }
+input  { font-family: var(--font); }

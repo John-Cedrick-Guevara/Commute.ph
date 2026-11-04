@@ -1,0 +1,57 @@
+.group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn {
+  border: 2px solid var(--gray-light);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  padding: 12px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray);
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.btn:hover {
+  border-color: var(--yellow);
+  background: var(--yellow-light);
+  color: var(--navy);
+  transform: translateY(-1px);
+}
+
+.btn.active {
+  border-color: var(--yellow-dark);
+  background: var(--yellow-light);
+  color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(245, 196, 0, 0.2);
+}
+
+.icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.labelWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-weight: 800;
+  color: inherit;
+  font-size: 13px;
+}
+
+.sub {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gray);
+  margin-top: 1px;
+}

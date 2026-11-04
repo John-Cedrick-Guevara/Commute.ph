@@ -1,0 +1,12 @@
+.footer {
+  background: var(--cream-dark);
+  border-top: 1.5px solid rgba(26, 35, 64, 0.08);
+  padding: 20px clamp(16px, 5vw, 64px);
+  text-align: center;
+}
+
+.note {
+  font-size: 11px;
+  color: var(--gray);
+  font-weight: 600;
+}

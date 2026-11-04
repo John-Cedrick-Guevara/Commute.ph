@@ -1,0 +1,71 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--gray-light);
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--white);
+}
+
+.option:hover {
+  border-color: var(--yellow);
+  background: var(--yellow-light);
+}
+
+.option.selected {
+  border-color: var(--navy);
+  background: rgba(26, 35, 64, 0.04);
+}
+
+/* Visually hide native radio */
+.radio {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--gray-light);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.dotSelected {
+  border-color: var(--navy);
+  background: var(--navy);
+  box-shadow: inset 0 0 0 3px var(--white);
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
+  flex: 1;
+}
+
+.tag {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--green);
+  background: rgba(61, 184, 122, 0.12);
+  padding: 2px 6px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
