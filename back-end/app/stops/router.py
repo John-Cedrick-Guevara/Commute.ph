@@ -8,10 +8,14 @@ from app.db.database import get_db
 from app.security import public_rate_limit, require_admin
 from app.stops import schema, service
 
-router = APIRouter(prefix="/stops", tags=["stops"])
+# Public: the stop list for the picker
+router = APIRouter(prefix="/v1/stops", tags=["stops"], dependencies=[Depends(public_rate_limit)])
+
+# Admin: stop management
+admin_router = APIRouter(prefix="/v1/admin/stops", tags=["admin: stops"], dependencies=[Depends(require_admin)])
 
 
-@router.get("/", response_model=list[schema.StopResponseSchema], dependencies=[Depends(public_rate_limit)])
+@router.get("", response_model=list[schema.StopResponseSchema])
 def list_stops(session: Annotated[Session, Depends(get_db)]):
     """
     List every stop, sorted by name.
@@ -22,8 +26,7 @@ def list_stops(session: Annotated[Session, Depends(get_db)]):
     return service.list_stops(session)
 
 
-@router.post("/", response_model=schema.StopResponseSchema, status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(require_admin)])
+@admin_router.post("", response_model=schema.StopResponseSchema, status_code=status.HTTP_201_CREATED)
 def create_stop(data: schema.StopCreate, session: Annotated[Session, Depends(get_db)]):
     """
     Create a stop.
@@ -35,7 +38,7 @@ def create_stop(data: schema.StopCreate, session: Annotated[Session, Depends(get
     return service.create_stop(session, data)
 
 
-@router.put("/{stop_id}", response_model=schema.StopResponseSchema, dependencies=[Depends(require_admin)])
+@admin_router.put("/{stop_id}", response_model=schema.StopResponseSchema)
 def update_stop(stop_id: uuid.UUID, data: schema.StopEdit, session: Annotated[Session, Depends(get_db)]):
     """
     Update a stop. Moving it clears the road distances of the route segments around it.
@@ -48,7 +51,7 @@ def update_stop(stop_id: uuid.UUID, data: schema.StopEdit, session: Annotated[Se
     return service.update_stop(session, stop_id, data)
 
 
-@router.delete("/{stop_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
+@admin_router.delete("/{stop_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_stop(stop_id: uuid.UUID, session: Annotated[Session, Depends(get_db)]):
     """
     Delete a stop. Refused (409) while a route still uses it.

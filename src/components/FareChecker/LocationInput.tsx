@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, type ChangeEvent, type KeyboardEvent } from 'react'
+import type { Stop } from '../../services/api'
 import styles from './LocationInput.module.css'
 
 /**
@@ -6,13 +7,13 @@ import styles from './LocationInput.module.css'
  * it (case-insensitive, like SQL ILIKE '%text%'). `excludeName` drops the stop chosen in the
  * other field.
  */
-export function matchStops(stops, text, excludeName) {
+export function matchStops(stops: Stop[], text: string, excludeName?: string): Stop[] {
   const q = text.trim().toLowerCase()
   const candidates = stops.filter((s) => s.name !== excludeName)
   if (!q) return candidates
 
-  const starts = []
-  const contains = []
+  const starts: Stop[] = []
+  const contains: Stop[] = []
   for (const stop of candidates) {
     const names = [stop.name, ...(stop.aliases ?? [])].map((n) => n.toLowerCase())
     if (names.some((n) => n.startsWith(q))) starts.push(stop)
@@ -26,6 +27,19 @@ export function matchStops(stops, text, excludeName) {
  * stored routes: typing clears the selection until a suggestion is picked.
  * `value` and `onChange` use a stop object ({ id, name }) or null.
  */
+interface Props {
+  id: string
+  label: string
+  icon: string
+  stops: Stop[]
+  value: Stop | null
+  onChange: (stop: Stop | null) => void
+  placeholder: string
+  excludeName?: string
+  disabled?: boolean
+  error?: string
+}
+
 export default function LocationInput({
   id,
   label,
@@ -37,11 +51,10 @@ export default function LocationInput({
   excludeName,
   disabled,
   error,
-}) {
+}: Props) {
   const [query, setQuery]           = useState(value?.name ?? '')
   const [open, setOpen]             = useState(false)
   const [focusedIdx, setFocusedIdx] = useState(-1)
-  const wrapperRef = useRef(null)
 
   const suggestions = matchStops(stops, query, excludeName)
 
@@ -50,14 +63,14 @@ export default function LocationInput({
     if (value) setQuery(value.name)
   }, [value])
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value)
     onChange(null)        // not a known stop until one is picked
     setFocusedIdx(0)
     setOpen(true)
   }
 
-  const handleSelect = (stop) => {
+  const handleSelect = (stop: Stop) => {
     setQuery(stop.name)
     onChange(stop)
     setOpen(false)
@@ -74,7 +87,7 @@ export default function LocationInput({
     if (exact) handleSelect(exact)
   }
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setOpen(true)
@@ -93,7 +106,7 @@ export default function LocationInput({
   const listId = `${id}-listbox`
 
   return (
-    <div ref={wrapperRef} className={`${styles.wrapper} ${error ? styles.hasError : ''}`}>
+    <div className={`${styles.wrapper} ${error ? styles.hasError : ''}`}>
       <div className={`${styles.field} ${open ? styles.active : ''}`}>
         <span className={styles.icon} aria-hidden="true">{icon}</span>
         <div className={styles.inputWrap}>

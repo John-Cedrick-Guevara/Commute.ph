@@ -8,7 +8,7 @@ Only stops on stored routes can be chosen; fares come from the jeepney fare matr
 
 | Part | Tech |
 | --- | --- |
-| Web app | React 18 + Vite (`src/`) |
+| Web app | React 18 + TypeScript + Vite (`src/`) |
 | API | FastAPI + SQLAlchemy (`back-end/`) |
 | Database | Supabase Postgres (migrations in `back-end/supabase/migrations`) |
 | Road distances | OpenRouteService (HeiGIT) |
@@ -56,11 +56,12 @@ For a deployed web app, set `VITE_API_URL` to the API's origin.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /stops/` | Every known stop, for the stop picker |
-| `GET /fair/routes?origin_stop_id=&destination_stop_id=&puv_type=` | Routes of a PUV type connecting two stops, with stops in travel order, distance and fares |
+| `GET /v1/stops` | Every known stop, for the stop picker |
+| `GET /v1/transport-types` | PUV types and whether fares are available for each |
+| `GET /v1/fares/estimate?origin_stop_id=&destination_stop_id=&puv_type=` | The fare matrix in effect and every route of that PUV type connecting the two stops, with stops in travel order, distance and fares |
+| `GET /v1/fare-data/status` | The fare matrix in effect per PUV type, with source and dates |
 | `GET /health` | Liveness check |
-| `POST/PUT/DELETE /stops/...` | Manage stops (admin key) |
-| `POST/PUT/DELETE /routes/...`, `PUT /routes/{id}/stops` | Manage routes and their ordered stops (admin key) |
+| `/v1/admin/stops`, `/v1/admin/routes` | Manage stops, routes and a route's ordered stops (admin key) |
 
 Public endpoints are rate limited per IP (HTTP 429 with `Retry-After` when exceeded).
 
@@ -82,10 +83,14 @@ Public endpoints are rate limited per IP (HTTP 429 with `Retry-After` when excee
 
 ## Tests
 
-The tests run against the database in `back-end/.env` and clean up the data they create.
+The API tests run against the database in `back-end/.env` and clean up the data they create.
 
 ```bash
 cd back-end && .venv/bin/python -m pytest
+```
+
+```bash
+npm run typecheck
 ```
 
 ## Docs

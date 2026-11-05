@@ -26,4 +26,5 @@ def health():
 
 app.include_router(routes_router.router)
 app.include_router(stops_router.router)
+app.include_router(stops_router.admin_router)
 app.include_router(fair_router.router)

@@ -5,20 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "api": "cd back-end && .venv/bin/uvicorn app.main:app --reload --port 8000"
+    "api": "cd back-end && .venv/bin/uvicorn app.main:app --reload --port 8000",
+    "typecheck": "tsc"
   },
   "dependencies": {
+    "axios": "^1.7.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
-    "axios": "^1.7.7"
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.6.3",
     "vite": "^5.4.8"
   }
 }

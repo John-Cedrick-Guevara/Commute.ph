@@ -17,12 +17,12 @@ def test_health():
 
 
 @pytest.mark.parametrize("method, path", [
-    ("post", "/routes/"),
-    ("put", f"/routes/{NON_EXISTENT_ID}"),
-    ("delete", f"/routes/{NON_EXISTENT_ID}"),
-    ("post", "/stops/"),
-    ("put", f"/stops/{NON_EXISTENT_ID}"),
-    ("delete", f"/stops/{NON_EXISTENT_ID}"),
+    ("post", "/v1/admin/routes"),
+    ("put", f"/v1/admin/routes/{NON_EXISTENT_ID}"),
+    ("delete", f"/v1/admin/routes/{NON_EXISTENT_ID}"),
+    ("post", "/v1/admin/stops"),
+    ("put", f"/v1/admin/stops/{NON_EXISTENT_ID}"),
+    ("delete", f"/v1/admin/stops/{NON_EXISTENT_ID}"),
 ])
 def test_writes_need_admin_key(method, path):
     assert anonymous.request(method, path, json={}).status_code == 401
@@ -30,7 +30,7 @@ def test_writes_need_admin_key(method, path):
 
 
 def test_public_reads_need_no_key():
-    assert anonymous.get("/stops/").status_code == 200
+    assert anonymous.get("/v1/stops").status_code == 200
 
 
 def test_cors_allows_the_web_app():

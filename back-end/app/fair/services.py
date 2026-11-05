@@ -9,7 +9,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
-from app.fair.model import FareMatrixRow, PuvType, SavedFare
+from app.fair.model import FareMatrixRow, FareMatrixVersion, PuvType, SavedFare
 from app.fair.schema import RouteMatchSchema
 from app.routes.model import Route
 from app.stops.model import RouteStop, Stop
@@ -32,6 +32,38 @@ def compute_fare(
 def current_version_id(db: Session, puv_type: str) -> uuid.UUID | None:
     """The fare matrix version in effect today (Manila time) for a PUV type."""
     return db.execute(select(func.current_fare_matrix_version(puv_type))).scalar()
+
+
+def list_transport_types(db: Session) -> list[dict]:
+    """Every PUV type, with whether a fare matrix is in effect for it."""
+    return [
+        {"code": t.code, "label": t.label, "has_fare_matrix": current_version_id(db, t.code) is not None}
+        for t in db.execute(select(PuvType).order_by(PuvType.label)).scalars()
+    ]
+
+
+def fare_data_status(db: Session) -> list[dict]:
+    """The fare matrix in effect for every PUV type, with its source and dates."""
+    return [
+        {"puv_type": t.code, "label": t.label, "fare_matrix": version_info(db, current_version_id(db, t.code))}
+        for t in db.execute(select(PuvType).order_by(PuvType.label)).scalars()
+    ]
+
+
+def version_info(db: Session, version_id: uuid.UUID | None) -> FareMatrixVersion | None:
+    return db.get(FareMatrixVersion, version_id) if version_id else None
+
+
+def estimate_fare(db: Session, origin_id: uuid.UUID, destination_id: uuid.UUID, puv_type: str) -> dict:
+    """The fare estimate response: the matrix in effect and the matching routes."""
+    routes = get_routes_between_stops(db, origin_id, destination_id, puv_type)
+    return {
+        "origin_stop_id": origin_id,
+        "destination_stop_id": destination_id,
+        "puv_type": puv_type,
+        "fare_matrix": version_info(db, current_version_id(db, puv_type)),
+        "routes": routes,
+    }
 
 
 def get_routes_between_stops(

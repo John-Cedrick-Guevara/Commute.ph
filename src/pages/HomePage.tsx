@@ -1,17 +1,19 @@
 import { useState } from 'react'
+import type { FareResult as FareResultData, PuvType } from '../services/api'
+import { transportLabel } from '../components/FareChecker/TransportSelector'
 import FareCard from '../components/FareChecker/FareCard'
 import FareResult from '../components/FareResult/FareResult'
 import JeepneySVG from '../components/Jeepney/JeepneySVG'
 import styles from './HomePage.module.css'
 
 export default function HomePage() {
-  const [result, setResult]         = useState(null)
-  const [transport, setTransport]   = useState('Jeepney')
+  const [result, setResult]         = useState<FareResultData | null>(null)
+  const [transport, setTransport]   = useState<PuvType>('traditional_jeepney')
 
-  const handleResult = (data) => setResult(data)
+  const handleResult = (data: FareResultData) => setResult(data)
   const handleClose  = () => setResult(null)
 
-  const jeepVariant = transport === 'Beep Jeep' ? 'beepjeep' : 'jeepney'
+  const jeepVariant = transport === 'modern_jeepney' ? 'beepjeep' : 'jeepney'
 
   return (
     <div className={styles.page}>
@@ -52,8 +54,8 @@ export default function HomePage() {
 
             {/* Speech bubble */}
             <div className={styles.bubble}>
-              {transport === 'Beep Jeep' ? '🚐' : '🚌'}&nbsp;
-              {transport} mode · Ready when you are
+              {transport === 'modern_jeepney' ? '🚐' : '🚌'}&nbsp;
+              {transportLabel(transport)} mode · Ready when you are
             </div>
 
             <JeepneySVG variant={jeepVariant} state="idle" />

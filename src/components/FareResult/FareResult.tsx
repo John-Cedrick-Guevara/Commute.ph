@@ -1,25 +1,28 @@
 import { useEffect, useRef } from 'react'
+import type { FareResult as FareResultData, PuvType } from '../../services/api'
+import { transportLabel } from '../FareChecker/TransportSelector'
 import styles from './FareResult.module.css'
 
-const TRANSPORT_ICONS = {
-  Jeepney: '🚌',
-  'Beep Jeep': '🚐',
+const TRANSPORT_ICONS: Record<PuvType, string> = {
+  traditional_jeepney: '🚌',
+  modern_jeepney: '🚐',
 }
 
-export default function FareResult({ result, onClose }) {
-  const closeRef = useRef(null)
+export default function FareResult({ result, onClose }: {
+  result: FareResultData
+  onClose: () => void
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null)
 
   // Trap focus inside modal and close on Escape
   useEffect(() => {
     closeRef.current?.focus()
-    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
-  if (!result) return null
-
-  const icon = TRANSPORT_ICONS[result.transport] || '🚌'
+  const icon = TRANSPORT_ICONS[result.transport]
   const hasDiscount = result.discountAmount > 0
 
   return (
@@ -98,8 +101,17 @@ export default function FareResult({ result, onClose }) {
 
         {/* Disclaimer */}
         <p className={styles.disclaimer}>
-          <strong>⚠ Estimate only.</strong> Based on the traditional jeepney
-          fare matrix. Always confirm the actual fare with your driver or operator.
+          <strong>⚠ Estimate only.</strong> Always confirm the actual fare with
+          your driver or operator.
+          <br />
+          <span className={styles.source}>
+            {transportLabel(result.transport)} fare matrix: {result.fareMatrix.source_name}
+            {' · '}effective {formatDate(result.fareMatrix.effective_from)}
+            {' · '}
+            {result.fareMatrix.verified_at
+              ? `verified ${formatDate(result.fareMatrix.verified_at)}`
+              : 'not yet verified'}
+          </span>
         </p>
 
         <button
@@ -114,7 +126,17 @@ export default function FareResult({ result, onClose }) {
   )
 }
 
-function BreakdownRow({ label, value, valueClass }) {
+/** "2026-11-04" or an ISO timestamp -> "Nov 4, 2026" */
+function formatDate(value: string) {
+  return new Date(value.length === 10 ? `${value}T00:00:00` : value)
+    .toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function BreakdownRow({ label, value, valueClass }: {
+  label: string
+  value: string | number
+  valueClass?: string
+}) {
   return (
     <div className={styles.row}>
       <span className={styles.rowLabel}>{label}</span>

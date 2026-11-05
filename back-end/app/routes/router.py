@@ -9,12 +9,12 @@ from app.security import require_admin
 from app.routes import schema, service
 
 router = APIRouter(
-    prefix="/routes",
-    tags=["routes"],
+    prefix="/v1/admin/routes",
+    tags=["admin: routes"],
     dependencies=[Depends(require_admin)],
 )
 
-@router.post("/", response_model=schema.RouteResponseSchema, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=schema.RouteResponseSchema, status_code=status.HTTP_201_CREATED)
 def create_route(
     route_data: schema.RouteCreate, session: Annotated[Session, Depends(get_db)]
 ):

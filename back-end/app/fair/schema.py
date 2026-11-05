@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -28,3 +29,33 @@ class RouteMatchSchema(BaseModel):
     fare_matrix_version_id: uuid.UUID | None = Field(
         ..., description="The fare matrix version used, null if the PUV type has none in effect"
     )
+
+
+class FareMatrixInfoSchema(BaseModel):
+    id: uuid.UUID = Field(..., description="The fare matrix version ID")
+    effective_from: date = Field(..., description="The date the matrix took effect (Manila time)")
+    source_name: str = Field(..., description="Where the fares come from")
+    source_url: str | None = Field(None, description="Link to the source, if any")
+    verified_at: datetime | None = Field(None, description="When an admin last verified the matrix")
+
+
+class FareEstimateSchema(BaseModel):
+    origin_stop_id: uuid.UUID
+    destination_stop_id: uuid.UUID
+    puv_type: str = Field(..., description="The PUV type code searched")
+    fare_matrix: FareMatrixInfoSchema | None = Field(
+        ..., description="The fare matrix in effect, null when the PUV type has none yet"
+    )
+    routes: list[RouteMatchSchema] = Field(..., description="The routes connecting both stops")
+
+
+class TransportTypeSchema(BaseModel):
+    code: str = Field(..., description="The PUV type code")
+    label: str = Field(..., description="The display name")
+    has_fare_matrix: bool = Field(..., description="Whether fares are available for this PUV type")
+
+
+class FareDataStatusSchema(BaseModel):
+    puv_type: str
+    label: str
+    fare_matrix: FareMatrixInfoSchema | None = Field(..., description="The matrix in effect, if any")

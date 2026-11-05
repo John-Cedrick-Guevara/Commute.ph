@@ -6,7 +6,10 @@ import styles from './JeepneySVG.module.css'
  *  - variant: 'jeepney' | 'beepjeep'  (colour scheme)
  *  - state:   'idle' | 'driving' | 'arrived'
  */
-export default function JeepneySVG({ variant = 'jeepney', state = 'idle' }) {
+export default function JeepneySVG({ variant = 'jeepney', state = 'idle' }: {
+  variant?: 'jeepney' | 'beepjeep'
+  state?: 'idle' | 'driving' | 'arrived'
+}) {
   const isBeep = variant === 'beepjeep'
   const bodyColor   = isBeep ? '#3B82F6' : '#F5C400'
   const roofColor   = isBeep ? '#2563EB' : '#D4A800'

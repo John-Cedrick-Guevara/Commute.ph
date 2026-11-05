@@ -1,22 +1,31 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, type FormEvent } from 'react'
 import LocationInput from './LocationInput'
-import TransportSelector from './TransportSelector'
+import TransportSelector, { transportLabel } from './TransportSelector'
 import PassengerSelector from './PassengerSelector'
-import { calculateFare, getStops } from '../../services/api'
+import {
+  calculateFare, getStops, getTransportTypes,
+  type FareResult, type PassengerType, type PuvType, type Stop,
+} from '../../services/api'
 import styles from './FareCard.module.css'
 
-export default function FareCard({ onResult, onTransportChange }) {
-  // Selected stops ({ id, name }); null while the user is still typing
-  const [from, setFrom]             = useState(null)
-  const [to, setTo]                 = useState(null)
-  const [transport, setTransport]   = useState('Jeepney')
-  const [passenger, setPassenger]   = useState('Regular')
-  const [loading, setLoading]       = useState(false)
-  const [errors, setErrors]         = useState({})
-  const [stops, setStops]           = useState([])
-  const [stopsLoading, setStopsLoading] = useState(true)
+type Errors = { from?: string; to?: string; api?: string }
 
-  // Load the known stops once for both pickers
+export default function FareCard({ onResult, onTransportChange }: {
+  onResult: (result: FareResult) => void
+  onTransportChange?: (transport: PuvType) => void
+}) {
+  // Selected stops ({ id, name }); null while the user is still typing
+  const [from, setFrom]             = useState<Stop | null>(null)
+  const [to, setTo]                 = useState<Stop | null>(null)
+  const [transport, setTransport]   = useState<PuvType>('traditional_jeepney')
+  const [passenger, setPassenger]   = useState<PassengerType>('Regular')
+  const [loading, setLoading]       = useState(false)
+  const [errors, setErrors]         = useState<Errors>({})
+  const [stops, setStops]           = useState<Stop[]>([])
+  const [stopsLoading, setStopsLoading] = useState(true)
+  const [unavailable, setUnavailable] = useState<PuvType[]>([])
+
+  // Load the known stops and which PUV types have fares, once
   useEffect(() => {
     getStops()
       .then(setStops)
@@ -25,15 +34,18 @@ export default function FareCard({ onResult, onTransportChange }) {
         setErrors({ api: 'Could not load the stop list. Please refresh the page.' })
       })
       .finally(() => setStopsLoading(false))
+    getTransportTypes()
+      .then((types) => setUnavailable(types.filter((t) => !t.has_fare_matrix).map((t) => t.code)))
+      .catch((err) => console.error('Failed to load transport types', err))  // the estimate still says so
   }, [])
 
-  const handleTransport = (val) => {
+  const handleTransport = (val: PuvType) => {
     setTransport(val)
     onTransportChange?.(val)
   }
 
   const validate = () => {
-    const e = {}
+    const e: Errors = {}
     if (!from) e.from = 'Please pick a starting point from the suggestions.'
     if (!to)   e.to   = 'Please pick a destination from the suggestions.'
     if (from && to && from.name === to.name)
@@ -53,15 +65,17 @@ export default function FareCard({ onResult, onTransportChange }) {
     setErrors({})
   }
 
-  const handleSubmit = useCallback(async (e) => {
+  const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault()
-    if (!validate()) return
+    if (!validate() || !from || !to) return
     setLoading(true)
     try {
-      const result = await calculateFare({ from, to, transport, passengerType: passenger })
+      const result = await calculateFare({
+        from, to, transport, transportLabel: transportLabel(transport), passengerType: passenger,
+      })
       onResult(result)
     } catch (err) {
-      setErrors({ api: err.message || 'Something went wrong. Please try again.' })
+      setErrors({ api: err instanceof Error ? err.message : 'Something went wrong. Please try again.' })
     } finally {
       setLoading(false)
     }
@@ -119,7 +133,7 @@ export default function FareCard({ onResult, onTransportChange }) {
 
       {/* Transport */}
       <p className={styles.sectionLabel}>Choose your Marikina ride</p>
-      <TransportSelector value={transport} onChange={handleTransport} />
+      <TransportSelector value={transport} onChange={handleTransport} unavailable={unavailable} />
 
       {/* Passenger */}
       <div className={styles.passengerHeader}>

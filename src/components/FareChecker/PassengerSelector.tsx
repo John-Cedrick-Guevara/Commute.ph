@@ -1,13 +1,17 @@
+import type { PassengerType } from '../../services/api'
 import styles from './PassengerSelector.module.css'
 
-const PASSENGER_TYPES = [
+const PASSENGER_TYPES: { id: PassengerType; label: string; discount: string | null }[] = [
   { id: 'Regular',        label: 'Regular',        discount: null },
   { id: 'Student',        label: 'Student',        discount: '−20%' },
   { id: 'Senior Citizen', label: 'Senior Citizen', discount: '−20%' },
   { id: 'PWD',            label: 'PWD',            discount: '−20%' },
 ]
 
-export default function PassengerSelector({ value, onChange }) {
+export default function PassengerSelector({ value, onChange }: {
+  value: PassengerType
+  onChange: (value: PassengerType) => void
+}) {
   return (
     <div
       className={styles.grid}
