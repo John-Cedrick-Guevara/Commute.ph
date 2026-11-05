@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "api": "cd back-end && .venv/bin/uvicorn app.main:app --reload --port 8000",
+    "api": "cd back-end && .venv/bin/uvicorn app.main:app --reload --reload-dir app --port 8000",
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "axios": "^1.7.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

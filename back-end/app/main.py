@@ -3,7 +3,9 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.fair import admin_router as saved_fares_router
 from app.fair import router as fair_router
+from app.fare_matrices import router as fare_matrices_router
 from app.routes import router as routes_router
 from app.stops import router as stops_router
 
@@ -28,3 +30,5 @@ app.include_router(routes_router.router)
 app.include_router(stops_router.router)
 app.include_router(stops_router.admin_router)
 app.include_router(fair_router.router)
+app.include_router(fare_matrices_router.router)
+app.include_router(saved_fares_router.router)

@@ -10,13 +10,14 @@ Decisions behind this document are recorded in [decisions.md](decisions.md).
 ```text
 React + TypeScript web app (src/)
   ├─ Stop picker (type-to-search over known stops)
-  └─ Fare result (route, distance, fare, fare matrix source and dates)
+  ├─ Fare result (route, distance, fare, fare matrix source and dates)
+  └─ Admin panel at /admin (lazy-loaded; Supabase Auth sign-in)
           │ HTTPS / JSON  (/v1/...)
           ▼
 FastAPI backend (back-end/)
   ├─ Request validation (Pydantic)
   ├─ Per-IP rate limiting (public endpoints)
-  ├─ Admin key on write endpoints (until the admin panel's Supabase Auth)
+  ├─ Supabase Auth (admin role) on /v1/admin endpoints
   ├─ Route matching and fare calculation
   └─ SQLAlchemy data access
           │
@@ -67,7 +68,7 @@ The fare cache is a database table rather than an in-memory cache, so it is shar
 - **Public endpoints:** per-IP fixed-window limit (`PUBLIC_RATE_LIMIT_PER_MINUTE`, default 60), HTTP `429` with `Retry-After`. It is in-process: with several API instances, move the counters to a shared store (Redis/Valkey).
 - **Third-party calls:** OpenRouteService is only called by the offline distance script today. Any future request path that calls it gets a stricter limit; saved fares are always answered first.
 - **DDoS:** the in-app limit stops scrapers and request loops, not a volumetric attack; that belongs at the hosting edge (e.g. Cloudflare).
-- **Writes:** create / edit / delete endpoints require `X-Admin-Key` (`ADMIN_API_KEY`) and fail closed when no key is configured. Replaced by Supabase Auth with the admin panel.
+- **Admin endpoints:** require a Supabase access token, verified against the project's public signing keys (JWKS), whose `app_metadata.role` is `admin`. Only the project owner can set `app_metadata` (SQL or the dashboard).
 - **CORS:** only origins in `CORS_ORIGINS` may call the API from a browser.
 - **Behind a proxy:** run uvicorn with `--proxy-headers` so the limit sees the real client IP.
 
@@ -92,9 +93,11 @@ The estimate response includes the routes (stops in travel order, distance, regu
 | `GET` | `/v1/fares/estimate` | Fare estimate for an origin and destination stop and PUV type |
 | `GET` | `/v1/fare-data/status` | The fare matrix in effect per PUV type, with source and dates |
 | `POST/PUT/DELETE` | `/v1/admin/stops/...` | Manage stops (admin) |
-| `POST/PUT/DELETE/GET` | `/v1/admin/routes/...` | Manage routes and their ordered stops (admin) |
+| `GET/POST/PUT/DELETE` | `/v1/admin/routes/...` | Manage routes and their ordered stops (admin) |
+| `GET/POST/PUT/DELETE` | `/v1/admin/fare-matrices/...` | Fare matrix drafts, PDF upload and parsing, publish preview, publish, retract (admin) |
+| `GET` | `/v1/admin/saved-fares` | Read-only saved fares (admin) |
 
-Planned with the admin panel: fare matrix drafts, PDF parsing, publishing and retraction under `/v1/admin/fare-matrices`, and a read-only saved fares view. FastAPI's OpenAPI docs are at `/docs`.
+FastAPI's OpenAPI docs are at `/docs`.
 
 ## 8. Operational basics
 
@@ -102,8 +105,16 @@ Planned with the admin panel: fare matrix drafts, PDF parsing, publishing and re
 - Use HTTPS in production and keep staging and production data separate.
 - Track request rate, saved-fare hit ratio, API latency, database latency, 4xx/5xx rates, and fare-data freshness (`/v1/fare-data/status`).
 
-## 9. Next
+## 9. Admin panel
 
-1. Admin panel with Supabase Auth: fare matrix entry (PDF upload, review and edit, publish), stops and routes, saved fares view.
-2. Retire the shared admin key once admin login is in place.
+At `/admin`, for accounts with the admin role:
+
+- **Fare matrices:** draft → upload the PDF (rows read with a pattern parser, no LLM) or paste / type rows → review and edit → checks (errors block publishing, warnings ask to double-check) → publish preview with the saved-fare retirement notice → publish. Published versions are read-only; retracting one restores the previous version and its saved fares from the last 15 days.
+- **Stops and routes:** full management; a route's stops are saved as an ordered list, and unchanged segments keep their road distance.
+- **Saved fares:** read-only, optionally including retired ones.
+
+## 10. Next
+
+1. Route verification status (`pending` / `verified` / `outdated`) in the admin panel.
+2. Fetch road distances from the admin panel (rate limited, since it calls OpenRouteService).
 3. Shared rate-limit store if the API runs on more than one instance.

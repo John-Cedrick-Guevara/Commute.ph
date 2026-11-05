@@ -33,3 +33,7 @@ class RouteStopResponseSchema(BaseModel):
 
 class RouteDetailSchema(RouteResponseSchema):
     stops: list[RouteStopResponseSchema]
+
+
+class RouteListItemSchema(RouteResponseSchema):
+    stop_count: int

@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.fair.model import PuvType
@@ -52,6 +52,20 @@ def update_route(session: Session, route_id: uuid.UUID, route_data: schema.Route
     commit(session)
     session.refresh(route)
     return route
+
+
+def list_routes(session: Session) -> list[dict]:
+    """Every route with its number of stops, sorted by name."""
+    rows = session.execute(
+        select(Route, func.count(RouteStop.id))
+        .outerjoin(RouteStop, RouteStop.route_id == Route.id)
+        .group_by(Route.id)
+        .order_by(Route.route_name)
+    ).all()
+    return [
+        {"id": r.id, "route_name": r.route_name, "puv_type": r.puv_type, "stop_count": count}
+        for r, count in rows
+    ]
 
 
 def get_route_detail(session: Session, route_id: uuid.UUID) -> dict:

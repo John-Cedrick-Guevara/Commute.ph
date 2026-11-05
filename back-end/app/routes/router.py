@@ -14,6 +14,17 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
+@router.get("", response_model=list[schema.RouteListItemSchema])
+def list_routes(session: Annotated[Session, Depends(get_db)]):
+    """
+    List every route with its number of stops.
+
+    :param session: SQLAlchemy session object
+    :return: The routes
+    """
+    return service.list_routes(session)
+
+
 @router.post("", response_model=schema.RouteResponseSchema, status_code=status.HTTP_201_CREATED)
 def create_route(
     route_data: schema.RouteCreate, session: Annotated[Session, Depends(get_db)]

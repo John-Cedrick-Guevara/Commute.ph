@@ -18,7 +18,7 @@ Only stops on stored routes can be chosen; fares come from the versioned fare ma
 Requirements: Node 18+, Python 3.10+, and the Supabase project's connection string.
 
 ```bash
-npm install
+npm install && cp .env.example .env   # then fill in the Supabase URL and publishable key
 ```
 
 ```bash
@@ -31,7 +31,6 @@ Create `back-end/.env`:
 SUPABASE_URL=...                # project URL
 SUPABASE_CONNECTION_STRING=...  # Postgres connection string
 HEIGIT_KEY=...                  # OpenRouteService key, only for the distance script
-ADMIN_API_KEY=...               # required for create / edit / delete requests (X-Admin-Key header)
 CORS_ORIGINS=http://localhost:5173        # optional; web app origins allowed to call the API
 PUBLIC_RATE_LIMIT_PER_MINUTE=60           # optional; per-IP limit on public endpoints
 ```
@@ -61,7 +60,7 @@ For a deployed web app, set `VITE_API_URL` to the API's origin.
 | `GET /v1/fares/estimate?origin_stop_id=&destination_stop_id=&puv_type=` | The fare matrix in effect and every route of that PUV type connecting the two stops, with stops in travel order, distance and fares |
 | `GET /v1/fare-data/status` | The fare matrix in effect per PUV type, with source and dates |
 | `GET /health` | Liveness check |
-| `/v1/admin/stops`, `/v1/admin/routes` | Manage stops, routes and a route's ordered stops (admin key) |
+| `/v1/admin/...` | Admin: fare matrices, stops, routes, saved fares (Supabase admin login) |
 
 Public endpoints are rate limited per IP (HTTP 429 with `Retry-After` when exceeded).
 
@@ -70,6 +69,26 @@ Public endpoints are rate limited per IP (HTTP 429 with `Retry-After` when excee
 - Each PUV type (`puv_types`) has versioned fare matrices (`fare_matrix_versions` + `fare_matrix_rows`) with source and effective date. The version in effect is the newest published one whose effective date (Manila time) has passed.
 - A trip's result is saved in `saved_fares` with the matrix version used and reused while that version is in effect. When a newer version takes effect, the old saved fares are soft-deleted (kept 15 days for a rollback) and recomputed on the next request. A nightly `pg_cron` job retires them and deletes ones older than 15 days.
 - Any change to `routes`, `route_stops` or `stops` deletes all saved fares.
+
+## Admin panel
+
+Open `/admin` in the web app and sign in with a Supabase account that has the admin role. To make an account an admin:
+
+1. Supabase dashboard → Authentication → Users → **Add user** (email and password).
+2. In the SQL editor, run (with the account's email):
+
+   ```sql
+   update auth.users
+   set raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'
+   where email = 'admin@example.com';
+   ```
+3. Sign in at `/admin` (sign out and in again if you were already signed in).
+
+The admin panel covers:
+
+- **Fare matrices:** start a draft, upload the fare matrix PDF (its rows are read without AI and filled into the table), review and edit every row or paste them from a spreadsheet, fix the checks, then publish. Before publishing it shows how many saved fares will retire and when. A published matrix can't be edited; retract it to bring the previous one back.
+- **Stops and routes:** create, edit and delete; set a route's stops in travel order.
+- **Saved fares:** read-only.
 
 ## Data
 

@@ -63,7 +63,7 @@ The application will use an internally maintained fare database based on officia
 ## Initial MVP Scope
 **Included:** Marikina City traditional jeepney fare estimates, origin/destination selection from known stops, regular and applicable discounted fares, fare data provenance (source, effective date, verification), and unsupported-route handling. Modern jeepneys (Beep Jeep) are listed but show "fares coming soon" until an official fare source is available.
 
-**Admin panel (next):** fare matrix entry (PDF upload with review before publishing), stop and route management, and a read-only view of saved fares. See [decisions](decisions.md).
+**Admin panel:** fare matrix entry (PDF upload with review before publishing), stop and route management, and a read-only view of saved fares. See [decisions](decisions.md).
 
 **Excluded initially:** Buses, routes outside Marikina, live vehicle tracking, turn-by-turn navigation, real-time congestion, commuter accounts, and nationwide transport coverage.
 

@@ -25,9 +25,9 @@ Agreed 2026-11-05 to resolve where the docs and the code disagreed. Each line sa
 
 - **Fare matrix upload:** the admin uploads the PDF; a parser (no LLM) fills an editable table. The admin checks and edits it, the app validates the numbers (fares never go down as distance goes up, discount ≈ 20%), and only then publishes. Until published it is a **draft** and is never used for fares. Manual entry / CSV paste is available when the PDF can't be parsed. The PDF is kept as the version's source document.
 - **Versions:** a published matrix is never edited; changes publish a new version with PUV type, effective date, source and verifier. The current version per PUV type is the newest one already in effect.
-- **Saved fares:** one row per stop pair per route, recording the matrix version used. When a new version takes effect, older saved fares are no longer served (soft-deleted), stay recoverable for 15 days in case of a rollback, then are deleted. The admin sees a notice of how many saved fares will be retired, and when, before publishing.
+- **Saved fares:** one row per stop pair and PUV type (all its routes share one matrix version), recording the matrix version used. When a new version takes effect, older saved fares are no longer served (soft-deleted), stay recoverable for 15 days in case of a rollback, then are deleted. The admin sees a notice of how many saved fares will be retired, and when, before publishing.
 - **Stops and routes:** full create / edit / delete. **Saved fares:** view only.
-- **Authentication:** Supabase Auth for admins. Until then, write endpoints require an admin key header.
+- **Authentication:** Supabase Auth; admins are accounts whose `app_metadata.role` is `admin`.
 
 ## Open
 
