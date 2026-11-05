@@ -8,10 +8,10 @@ Return a reliable fare estimate for a PUV trip by matching the user's origin and
 
 1. **Resolve endpoints** — Convert the user's origin and destination into known stops or landmarks.
 2. **Find a matching route** — Search stored routes using the endpoints, direction, and relevant intermediate stops.
-3. **Reuse verified data** — If a valid, verified route and fare record exists, return it.
-4. **Build a candidate route** — If no match exists, use road-network data to map a possible path. Treat it as a candidate, not an official route.
-5. **Verify route and fare** — Compare the path with the actual PUV route and check the fare against an applicable fare matrix or reliable field verification.
-6. **Store the result** — Save the verified route, distance, fare data, source, and verification date.
+3. **Reuse verified data** — If a saved fare for the trip exists and was computed with the fare matrix in effect, return it.
+4. **Build a candidate route** *(planned)* — If no match exists, use road-network data to map a possible path. Treat it as a candidate, not an official route.
+5. **Verify route and fare** *(planned)* — Compare the path with the actual PUV route and check the fare against an applicable fare matrix or reliable field verification.
+6. **Store the result** — Save the result with the fare matrix version used (`saved_fares`).
 7. **Return the response** — Include the route, estimated distance, fare, and verification status.
 
 ## 3. High-Level Architecture
@@ -46,52 +46,43 @@ Fare Checker API
 - **Route Repository:** Stores route geometry, stops, distance, fare references, and verification metadata.
 - **Cache (optional):** Speeds up frequent lookups. The database remains the source of truth.
 
-## 5. Suggested Data Model
+## 5. Data Model
+
+Built (see `back-end/supabase/migrations`):
+
+### `puv_types`
+- `code` (e.g. `traditional_jeepney`, `modern_jeepney`), `label`
 
 ### `routes`
-- `id`
-- `name`
-- `puv_type`
-- `origin_stop_id`
-- `destination_stop_id`
-- `direction`
-- `geometry` — ordered route coordinates
-- `distance_km`
-- `status` — `pending`, `verified`, `outdated`
-- `source`
-- `verified_at`
-
-### `route_stops`
-- `id`
-- `route_id`
-- `stop_id`
-- `sequence_number` — order of stops along the route
+- `id`, `route_name`, `puv_type`
 
 ### `stops`
-- `id`
-- `name`
-- `latitude`
-- `longitude`
+- `id`, `name` (unique), `latitude`, `longitude`
 - `aliases` — alternative names passengers may use
 
-### `fare_rules` or `fare_matrices`
-- `id`
-- `route_id` or applicable route/PUV scope
-- `puv_type`
-- `fare_data` — matrix or rule reference
-- `source`
-- `effective_from`
-- `effective_until`
-- `verified_at`
+### `route_stops`
+- `route_id`, `stop_id`, `stop_sequence` — order of stops along the route
+- `distance_from_previous_km` — road distance from the previous stop, filled by `scripts/fill_segment_distances.py`
 
-Keep fare data versioned so a fare change does not silently overwrite the historical record.
+### `fare_matrix_versions` + `fare_matrix_rows`
+- Version: `puv_type`, `status` (`draft`, `published`, `retracted`), `effective_from`, `source_name`, `source_url`, uploaded PDF, `verified_by`, `verified_at`, `published_at`
+- Rows: `distance_km`, `regular_fare`, `discounted_fare`
+- A published version is never edited; a fare change publishes a new version, so history is kept.
+
+### `saved_fares`
+- `origin_stop_id`, `destination_stop_id`, `puv_type`, `fare_matrix_version_id`, `routes` (the search result), `deleted_at` (soft delete)
+
+Planned:
+
+- `routes.status` (`pending`, `verified`, `outdated`), `source`, `verified_at` — route verification, with the admin panel.
+- `routes.geometry` — the mapped path, when candidate routes are generated.
 
 ## 6. Matching and Cache Rules
 
 - Match by normalized endpoints, route, direction, and stop sequence—not endpoints alone.
 - Reuse only records with `verified` status and currently valid fare data.
-- Cache keys should include the route/direction and fare-data version where relevant.
-- Expire or invalidate cached results when route geometry or fare rules change.
+- Saved fares record the fare matrix version used and are served only while that version is in effect.
+- Route or stop changes delete saved fares; a new fare matrix version retires them (soft delete, kept 15 days for a rollback).
 - Do not save an unverified generated path as an official route.
 
 ## 7. Accuracy Rules
@@ -104,13 +95,13 @@ Keep fare data versioned so a fare change does not silently overwrite the histor
 
 ## 8. MVP Implementation Order
 
-1. Create a small list of Marikina routes and stops.
-2. Collect and verify route paths and posted fare matrices.
-3. Store routes, stop order, and fare sources in the database.
-4. Build endpoint matching and route lookup.
-5. Add route mapping only for routes not already stored.
-6. Add verification status, fare validity dates, and cache invalidation.
-7. Test repeated requests, reverse-direction trips, ambiguous endpoints, and fare updates.
+1. ✅ Create a small list of Marikina routes and stops.
+2. ⏳ Collect and verify route paths and posted fare matrices (the imported jeepney matrix has no recorded source yet).
+3. ✅ Store routes, stop order, and fare sources in the database.
+4. ✅ Build endpoint matching and route lookup.
+5. ⏳ Add route mapping only for routes not already stored.
+6. ✅ Fare validity dates and saved-fare invalidation. ⏳ Route verification status (admin panel).
+7. ✅ Test repeated requests, reverse-direction trips and fare updates.
 
 ## 9. Key Principle
 

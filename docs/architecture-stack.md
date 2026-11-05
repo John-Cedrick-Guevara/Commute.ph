@@ -1,164 +1,109 @@
 # Commut.ph — Architecture & Technology Stack
 
-**Status:** MVP proposal  
-**Primary stack:** React + TypeScript, FastAPI + Python, Supabase (PostgreSQL)
+**Status:** MVP, Marikina City jeepney routes
+**Stack:** React + TypeScript (Vite), FastAPI + Python, Supabase (PostgreSQL)
+
+Decisions behind this document are recorded in [decisions.md](decisions.md).
 
 ## 1. Architecture overview
 
 ```text
-React + TypeScript client
-  ├─ UI state
-  ├─ Client query cache (TanStack Query)
-  └─ Request cancellation / retry policy
-          │ HTTPS / JSON
+React + TypeScript web app (src/)
+  ├─ Stop picker (type-to-search over known stops)
+  └─ Fare result (route, distance, fare, fare matrix source and dates)
+          │ HTTPS / JSON  (/v1/...)
           ▼
-FastAPI backend
-  ├─ Request validation and normalization
-  ├─ Rate limiting
-  ├─ Server-side cache
-  ├─ Fare calculation and route matching
-  └─ Supabase repository / data-access layer
+FastAPI backend (back-end/)
+  ├─ Request validation (Pydantic)
+  ├─ Per-IP rate limiting (public endpoints)
+  ├─ Admin key on write endpoints (until the admin panel's Supabase Auth)
+  ├─ Route matching and fare calculation
+  └─ SQLAlchemy data access
           │
           ▼
 Supabase PostgreSQL
-  ├─ Fare rules and fare matrices
-  ├─ Supported routes / route segments
-  ├─ Transport types and discounts
-  └─ Source, effective date, verification metadata
+  ├─ stops, routes, route_stops
+  ├─ puv_types, fare_matrix_versions, fare_matrix_rows
+  └─ saved_fares (+ triggers and a nightly pg_cron job)
 ```
 
-**Design principle:** The client calls FastAPI, and FastAPI owns fare calculation and database access. Do not expose database credentials or privileged Supabase keys in the browser.
+**Design principle:** the browser only talks to FastAPI, and FastAPI owns fare calculation and database access. Database credentials never reach the browser.
 
 ## 2. Technology choices
 
-| Layer | Recommended technology | Purpose |
+| Layer | Technology | Purpose |
 |---|---|---|
-| Frontend | React + TypeScript | Responsive commuter-facing UI |
-| Client data cache | TanStack Query | Cache responses, deduplicate requests, manage loading/error states |
-| Backend API | Python + FastAPI | Validation, fare logic, rate limiting, cache access |
-| Database | Supabase PostgreSQL | Persist fare rules, route data, discounts, and provenance |
-| Server cache (MVP) | In-process TTL/LRU cache | Avoid repeated database reads for popular fare data |
-| Rate limiting (MVP) | FastAPI middleware/dependency with a shared store if deployed across multiple instances | Limit abusive or accidental request bursts |
-| Deployment | Static frontend hosting + managed FastAPI hosting | Deploy and scale the UI and API independently |
+| Frontend | React 18 + TypeScript (strict) + Vite | Commuter-facing fare checker |
+| Backend API | Python + FastAPI + SQLAlchemy | Validation, route matching, fare logic |
+| Database | Supabase PostgreSQL | Stops, routes, versioned fare matrices, saved fares |
+| Saved fares | `saved_fares` table | Reuse computed fares; survives restarts, shared across API instances |
+| Scheduled jobs | `pg_cron` | Retire and purge saved fares nightly |
+| Road distances | OpenRouteService (HeiGIT), offline script | Stop-to-stop road distance |
 
-## 3. Request flow
+**Deferred:** TanStack Query on the client. Fare lookups are one request per screen and already served from saved fares; add it with the admin panel if its forms need client caching and refetching.
 
-1. User enters origin, destination, transport type, and passenger category.
-2. React validates the input and uses TanStack Query to check its client cache.
-3. If no usable cached response exists, the client sends an HTTPS request to FastAPI.
-4. FastAPI validates and normalizes the request, then checks the rate limit.
-5. FastAPI checks its server cache using a normalized cache key.
-6. On a cache hit, return the cached result. On a miss, retrieve the necessary fare/route data from Supabase, calculate the estimate, and cache the result.
-7. Return the fare estimate with its currency, assumptions, source/effective date, and verification metadata.
-8. TanStack Query caches the response for subsequent client requests.
+## 3. Request flow (fare estimate)
 
-## 4. Caching strategy
+1. The web app loads the known stops (`GET /v1/stops`) and PUV types (`GET /v1/transport-types`).
+2. The user picks an origin and destination from the suggestions (free text is not accepted), a PUV type and a passenger type.
+3. The app calls `GET /v1/fares/estimate?origin_stop_id=&destination_stop_id=&puv_type=`.
+4. FastAPI checks the per-IP rate limit, validates the stops and PUV type, and finds the fare matrix version in effect.
+5. If `saved_fares` has a live row for the trip computed with that version, it is returned as-is.
+6. Otherwise FastAPI finds every route of that PUV type passing both stops, sums the road distances between them, looks up the fare in the matrix, and saves the result when every route has a fare.
+7. The response includes the routes, distance, regular and discounted fares, and the fare matrix's source, effective date and verification date. The app shows the cheapest priced route.
 
-### Client-side cache
-Use **TanStack Query** rather than hand-rolling cache state.
+## 4. Saved fares (server-side cache)
 
-- Cache fare-query responses for a short configurable period, such as 1–5 minutes.
-- Use a stable query key containing normalized origin, destination, transport type, passenger category, and relevant fare-data version.
-- Deduplicate simultaneous identical requests.
-- Avoid automatic retries for validation errors and other non-retryable 4xx responses.
-- Invalidate relevant queries when the user changes inputs or when the app learns that fare data has changed.
+The fare cache is a database table rather than an in-memory cache, so it is shared by every API instance and survives restarts.
 
-### Server-side cache
-Start with a bounded **in-memory TTL/LRU cache** for an MVP deployed as a single FastAPI instance.
+- **Key:** origin stop, destination stop, PUV type. At most one live row per trip.
+- **Matrix version:** each row records the fare matrix version it was computed with. A row is served only while that version is the one in effect.
+- **New fare matrix:** when a newer version takes effect (by its effective date, Manila time), older rows are soft-deleted (`deleted_at`) and recomputed on the next request. Soft-deleted rows are kept 15 days so a retracted matrix can restore them, then deleted by the nightly job.
+- **Route or stop changes:** any write to `routes`, `route_stops` or `stops` deletes all saved fares (database triggers), since stops, order or distances may have changed.
+- **Incomplete results** (a route whose distances aren't fetched yet, or no matrix in effect) are never saved.
 
-- Cache normalized fare data and/or computed fare results.
-- Use explicit TTLs and maximum cache size to prevent unbounded memory growth.
-- Include a fare-data version or update timestamp in keys where practical.
-- Invalidate affected entries when an administrator updates fare data; otherwise keep TTLs short enough to bound staleness.
-- Do not cache errors as successful results. Avoid caching personalized or sensitive data unless the cache key and isolation rules are correct.
+## 5. Rate limiting and security
 
-**Important limitation:** An in-memory cache is local to one process. It is not shared across workers or multiple server instances, and it is cleared on restart. If the API scales horizontally, move to a shared cache such as Redis/Valkey or use a database-backed versioning/invalidation strategy.
-
-### Database-side protection
-- Add indexes for route identifiers, transport type, effective dates, and other actual query filters.
-- Fetch only the required columns and rows; avoid loading the entire database on each request.
-- Keep fare calculation rules in a clear service layer and data retrieval in a repository layer.
-- Use connection pooling and set sensible query timeouts.
-- Monitor query volume, latency, errors, and Supabase connection usage before adding infrastructure.
-
-## 5. Rate limiting and resilience
-
-Rate limiting is useful, but it is not a replacement for caching or efficient queries.
-
-- Apply per-IP limits to anonymous traffic, with sensible burst and sustained limits.
-- Add stricter limits to expensive or malformed query patterns.
-- Return HTTP `429 Too Many Requests` with a `Retry-After` header when appropriate.
-- If running multiple API instances, use a shared rate-limit store; per-process counters are not globally accurate.
-- Add request timeouts and bounded retries for transient failures only.
-- Keep database access behind the backend; never let the browser bypass the API for fare queries.
-- Add basic request IDs and structured logs to help diagnose slow requests and abuse.
-
-Tune actual rate-limit values after observing expected usage and deployment constraints rather than treating initial values as permanent.
+- **Public endpoints:** per-IP fixed-window limit (`PUBLIC_RATE_LIMIT_PER_MINUTE`, default 60), HTTP `429` with `Retry-After`. It is in-process: with several API instances, move the counters to a shared store (Redis/Valkey).
+- **Third-party calls:** OpenRouteService is only called by the offline distance script today. Any future request path that calls it gets a stricter limit; saved fares are always answered first.
+- **DDoS:** the in-app limit stops scrapers and request loops, not a volumetric attack; that belongs at the hosting edge (e.g. Cloudflare).
+- **Writes:** create / edit / delete endpoints require `X-Admin-Key` (`ADMIN_API_KEY`) and fail closed when no key is configured. Replaced by Supabase Auth with the admin panel.
+- **CORS:** only origins in `CORS_ORIGINS` may call the API from a browser.
+- **Behind a proxy:** run uvicorn with `--proxy-headers` so the limit sees the real client IP.
 
 ## 6. Fare data and response contract
 
-Store fare data with provenance, not just a numeric amount. Suggested fields include:
+Fare matrices are versioned per PUV type and never edited once published:
 
-- `transport_type`
-- `route_id` or route/segment reference
-- fare-rule parameters (for example, base fare, distance bands, or per-kilometer rate)
-- discount eligibility and calculation rules
-- `source_name` and `source_url`
-- `effective_from` and optional `effective_until`
-- `last_verified_at`
-- `data_version` or update timestamp
+- `fare_matrix_versions`: `puv_type`, `status` (draft / published / retracted), `effective_from`, `source_name`, `source_url`, the uploaded PDF, `verified_by`, `verified_at`, `published_at`
+- `fare_matrix_rows`: `distance_km`, `regular_fare`, `discounted_fare` per version
 
-The API response should include:
+The version in effect for a PUV type is the newest published one whose effective date has passed (`current_fare_matrix_version()` in the database).
 
-- estimated fare and currency
-- transport type and route/segment used
-- passenger category and applied discount, if any
-- calculation basis and assumptions
-- source and effective/verification date
-- whether the result is an estimate or a confirmed route-specific fare
+The estimate response includes the routes (stops in travel order, distance, regular and discounted fare) and the fare matrix in effect (source, effective date, verification date). Trips past the end of a matrix, routes without distances, and PUV types without a matrix return no fare rather than an invented one.
 
-Do not present a calculated estimate as exact when route-specific fare data is missing or uncertain. Return a clear unsupported/insufficient-data response instead.
-
-## 7. Suggested API endpoints
+## 7. API endpoints
 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | `GET` | `/health` | Basic service health check |
-| `GET` | `/v1/transport-types` | Supported transport types |
-| `GET` | `/v1/fares/estimate` | Estimate fare for normalized origin/destination and passenger category |
-| `GET` | `/v1/fare-data/status` | Public freshness/version metadata, if useful |
-| `POST` | `/v1/admin/fare-rules` | Protected administrative fare-rule update; not public |
+| `GET` | `/v1/stops` | Every known stop |
+| `GET` | `/v1/transport-types` | Supported PUV types and whether fares are available |
+| `GET` | `/v1/fares/estimate` | Fare estimate for an origin and destination stop and PUV type |
+| `GET` | `/v1/fare-data/status` | The fare matrix in effect per PUV type, with source and dates |
+| `POST/PUT/DELETE` | `/v1/admin/stops/...` | Manage stops (admin) |
+| `POST/PUT/DELETE/GET` | `/v1/admin/routes/...` | Manage routes and their ordered stops (admin) |
 
-Validate query parameters with Pydantic models and document the contract through FastAPI's OpenAPI docs. Keep admin routes authenticated and authorization-protected.
+Planned with the admin panel: fare matrix drafts, PDF parsing, publishing and retraction under `/v1/admin/fare-matrices`, and a read-only saved fares view. FastAPI's OpenAPI docs are at `/docs`.
 
-## 8. Security and operational basics
+## 8. Operational basics
 
-- Store Supabase service-role credentials only in backend environment secrets. Never ship them to React.
-- Use least-privilege database access and authenticated, protected admin operations.
-- Validate and normalize all user input; cap input lengths and request sizes.
-- Configure CORS for known frontend origins.
-- Use HTTPS in production.
-- Track request rate, cache-hit ratio, API latency, database latency, 4xx/5xx rates, and fare-data freshness.
-- Keep staging and production data/configuration separate.
+- Keep the Supabase connection string and admin key in backend environment variables only.
+- Use HTTPS in production and keep staging and production data separate.
+- Track request rate, saved-fare hit ratio, API latency, database latency, 4xx/5xx rates, and fare-data freshness (`/v1/fare-data/status`).
 
-## 9. MVP implementation order
+## 9. Next
 
-1. Define the fare and route schema, including source and effective dates.
-2. Implement deterministic fare calculation and unit tests.
-3. Build FastAPI endpoints and Supabase repository functions.
-4. Add request validation, structured errors, timeouts, and basic rate limiting.
-5. Add server-side TTL/LRU caching and cache invalidation/versioning.
-6. Integrate TanStack Query on the React client.
-7. Load-test repeated and varied fare queries; measure cache-hit ratio and database load.
-8. Add a shared cache only if multiple instances or observed load make in-memory caching insufficient.
-
-## 10. Senior engineering assessment
-
-The overall idea—async request/response, rate limiting, and caching on both client and server—is appropriate. Keep the architecture boring and measurable.
-
-**Two key cautions:**
-
-1. **Caching correctness matters more than adding cache layers.** Fare data changes over time, so every cached estimate needs a bounded lifetime and a strategy for fare-rule updates.
-2. **Rate limiting must match deployment topology.** Per-process limits are acceptable for a single instance, but multi-instance deployments need shared counters to enforce global limits.
-
-For the MVP, use **React + TypeScript + TanStack Query → FastAPI → Supabase PostgreSQL**, with a bounded in-memory server cache. Add Redis/Valkey only when scale, multi-instance consistency, or invalidation requirements justify it.
+1. Admin panel with Supabase Auth: fare matrix entry (PDF upload, review and edit, publish), stops and routes, saved fares view.
+2. Retire the shared admin key once admin login is in place.
+3. Shared rate-limit store if the API runs on more than one instance.

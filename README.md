@@ -2,7 +2,7 @@
 
 Jeepney fare checker for Marikina City. Pick a starting stop and a destination, and it shows the route that connects them, the road distance, and the regular or discounted (student / senior citizen / PWD) fare.
 
-Only stops on stored routes can be chosen; fares come from the jeepney fare matrix in the database.
+Only stops on stored routes can be chosen; fares come from the versioned fare matrix in effect for the PUV type, and each result shows the matrix's source and effective date.
 
 ## Stack
 
@@ -95,6 +95,7 @@ npm run typecheck
 
 ## Docs
 
+- [Decisions](docs/decisions.md)
 - [Product requirements](docs/PRD.md)
 - [Architecture and stack](docs/architecture-stack.md)
 - [Back-end flow](docs/back-end-flow-idea.md)

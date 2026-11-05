@@ -40,8 +40,8 @@ export default function HomePage() {
           />
 
           <p className={styles.footnote}>
-            ⊙ Marikina City routes only. Fares shown are sample estimates for
-            this prototype.
+            ⊙ Marikina City routes only. Fares are estimates from the fare matrix
+            in effect; the result shows its source and date.
           </p>
         </div>
 

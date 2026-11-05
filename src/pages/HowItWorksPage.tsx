@@ -5,27 +5,27 @@ const STEPS = [
   {
     num: '1',
     title: 'Enter your route',
-    body: 'Type your starting point and destination anywhere in Marikina City. The app will suggest known stops and landmarks as you type.',
+    body: 'Start typing your starting point and destination, then pick from the suggested Marikina stops. Only stops on known routes can be chosen.',
   },
   {
     num: '2',
     title: 'Choose your ride',
-    body: 'Pick between a traditional Jeepney or a modern Beep Jeep (e-jeep). Both operate on Marikina routes.',
+    body: 'Pick a traditional Jeepney or a modern Beep Jeep (e-jeep). Beep Jeep fares are coming soon, once an official fare source is available.',
   },
   {
     num: '3',
     title: 'Select your passenger type',
-    body: 'Students, senior citizens, and PWDs are eligible for a 20% discount under LTFRB and RA 9994 / RA 10754. Always bring a valid ID.',
+    body: 'Students, senior citizens, and PWDs pay the discounted fare (RA 11314, RA 9994, RA 10754). Always bring a valid ID.',
   },
   {
     num: '4',
     title: 'Check your fare',
-    body: 'Get an instant estimate based on sample LTFRB fare matrices. No sign-up, no payment, no account required.',
+    body: 'Get an instant estimate from the fare matrix in effect for your ride, with its source and effective date. No sign-up, no payment, no account required.',
   },
   {
     num: '5',
     title: 'Confirm with your driver',
-    body: 'Sakay shows sample estimates only. Always verify the actual fare with your driver or operator before riding.',
+    body: 'Sakay shows estimates. Always verify the actual fare with your driver or operator before riding.',
   },
 ]
 
@@ -53,10 +53,10 @@ export default function HowItWorksPage() {
 
         <div className={styles.disclaimer}>
           <p>
-            <strong>⚠ Important:</strong> Sakay is a prototype for demonstration
-            purposes. Fares shown are sample estimates only and are not verified
-            real-world prices. Sakay is not affiliated with LTFRB or any
-            government agency.
+            <strong>⚠ Important:</strong> Fares shown are estimates from the fare
+            matrix on file, and each result shows that matrix's source and
+            effective date. Sakay is not affiliated with LTFRB or any government
+            agency.
           </p>
         </div>
 

@@ -138,14 +138,13 @@ export default function FareCard({ onResult, onTransportChange }: {
       {/* Passenger */}
       <div className={styles.passengerHeader}>
         <p className={styles.sectionLabel} style={{ margin: 0 }}>Passenger type</p>
-        <span className={styles.demoBadge}>DEMO DISCOUNT</span>
+        <span className={styles.demoBadge}>20% OFF</span>
       </div>
       <PassengerSelector value={passenger} onChange={setPassenger} />
 
       <p className={styles.discountNote}>
-        Sample 20% discount for students, senior citizens, and PWDs. Bring a
-        valid eligibility ID and confirm the actual fare with your operator.
-        Discounts do not stack.
+        Students, senior citizens, and PWDs pay the discounted fare. Bring a
+        valid ID. Discounts do not stack.
       </p>
 
       {/* API error */}
