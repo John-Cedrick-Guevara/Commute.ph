@@ -27,11 +27,17 @@ async function request(path) {
 }
 
 /**
- * List every known stop, sorted by name. Returns [{ id, point_name }].
- * GET /route-points/
+ * List every known stop, sorted by name. Returns [{ id, name, aliases, latitude, longitude }].
+ * GET /stops/
  */
 export async function getStops() {
-  return request('/route-points/')
+  return request('/stops/')
+}
+
+// Transport choices in the form -> PUV type codes in the API
+const PUV_TYPES = {
+  Jeepney: 'traditional_jeepney',
+  'Beep Jeep': 'modern_jeepney',
 }
 
 /**
@@ -42,11 +48,15 @@ export async function getStops() {
  * known fare is shown.
  */
 export async function calculateFare({ from, to, transport, passengerType }) {
-  const params = new URLSearchParams({ start_point_id: from.id, end_point_id: to.id })
+  const params = new URLSearchParams({
+    origin_stop_id: from.id,
+    destination_stop_id: to.id,
+    puv_type: PUV_TYPES[transport],
+  })
   const routes = await request(`/fair/routes?${params}`)
 
   if (routes.length === 0) {
-    throw new Error('No jeepney route connects these two stops yet.')
+    throw new Error(`No ${transport} route connects these two stops yet.`)
   }
 
   const priced = routes.filter((r) => r.regular_fare !== null)
@@ -59,12 +69,12 @@ export async function calculateFare({ from, to, transport, passengerType }) {
   const total = discounted ? route.discounted_fare : route.regular_fare
 
   return {
-    from: from.point_name,
-    to: to.point_name,
+    from: from.name,
+    to: to.name,
     transport,
     passengerType,
     routeName: route.route_name,
-    stops: route.points.length,
+    stops: route.stops.length,
     distance: route.distance_km,
     regularFare: route.regular_fare,
     discountAmount: discounted ? route.regular_fare - route.discounted_fare : 0,

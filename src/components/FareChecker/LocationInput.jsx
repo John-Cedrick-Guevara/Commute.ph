@@ -2,21 +2,21 @@ import { useState, useRef, useEffect } from 'react'
 import styles from './LocationInput.module.css'
 
 /**
- * Rank stops for the typed text: names starting with it first, then names containing it
- * (case-insensitive, like SQL ILIKE '%text%'). `excludeName` drops the stop chosen in the
+ * Rank stops for the typed text: names or aliases starting with it first, then ones containing
+ * it (case-insensitive, like SQL ILIKE '%text%'). `excludeName` drops the stop chosen in the
  * other field.
  */
 export function matchStops(stops, text, excludeName) {
   const q = text.trim().toLowerCase()
-  const candidates = stops.filter((s) => s.point_name !== excludeName)
+  const candidates = stops.filter((s) => s.name !== excludeName)
   if (!q) return candidates
 
   const starts = []
   const contains = []
   for (const stop of candidates) {
-    const name = stop.point_name.toLowerCase()
-    if (name.startsWith(q)) starts.push(stop)
-    else if (name.includes(q)) contains.push(stop)
+    const names = [stop.name, ...(stop.aliases ?? [])].map((n) => n.toLowerCase())
+    if (names.some((n) => n.startsWith(q))) starts.push(stop)
+    else if (names.some((n) => n.includes(q))) contains.push(stop)
   }
   return [...starts, ...contains]
 }
@@ -24,7 +24,7 @@ export function matchStops(stops, text, excludeName) {
 /**
  * Type-to-search stop picker. Only known stops can be chosen, since fares exist only for
  * stored routes: typing clears the selection until a suggestion is picked.
- * `value` and `onChange` use a stop object ({ id, point_name }) or null.
+ * `value` and `onChange` use a stop object ({ id, name }) or null.
  */
 export default function LocationInput({
   id,
@@ -38,7 +38,7 @@ export default function LocationInput({
   disabled,
   error,
 }) {
-  const [query, setQuery]           = useState(value?.point_name ?? '')
+  const [query, setQuery]           = useState(value?.name ?? '')
   const [open, setOpen]             = useState(false)
   const [focusedIdx, setFocusedIdx] = useState(-1)
   const wrapperRef = useRef(null)
@@ -47,7 +47,7 @@ export default function LocationInput({
 
   // Show the stop name when the parent sets the stop (e.g. swap)
   useEffect(() => {
-    if (value) setQuery(value.point_name)
+    if (value) setQuery(value.name)
   }, [value])
 
   const handleChange = (e) => {
@@ -58,7 +58,7 @@ export default function LocationInput({
   }
 
   const handleSelect = (stop) => {
-    setQuery(stop.point_name)
+    setQuery(stop.name)
     onChange(stop)
     setOpen(false)
     setFocusedIdx(-1)
@@ -69,7 +69,7 @@ export default function LocationInput({
     setOpen(false)
     if (value) return
     const exact = suggestions.find(
-      (s) => s.point_name.toLowerCase() === query.trim().toLowerCase()
+      (s) => s.name.toLowerCase() === query.trim().toLowerCase()
     )
     if (exact) handleSelect(exact)
   }
@@ -136,7 +136,7 @@ export default function LocationInput({
               onMouseDown={(e) => { e.preventDefault(); handleSelect(stop) }}
             >
               <span className={styles.itemIcon} aria-hidden="true">📍</span>
-              <span className={styles.itemName}>{stop.point_name}</span>
+              <span className={styles.itemName}>{stop.name}</span>
             </li>
           ))}
         </ul>

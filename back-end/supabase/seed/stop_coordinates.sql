@@ -2,7 +2,10 @@
 -- Rows left as null are skipped, so you can fill and run this in batches.
 -- Format: latitude first, then longitude, e.g. 14.64012, 121.10563
 
-update route_points rp
+-- Stops are shared between routes, so each stop is updated once by name; the route column
+-- only says where to find it. Moving a stop does not clear its route distances here: run the
+-- distance script after clearing them, or edit stops through the API, which clears them.
+update stops s
 set latitude = v.lat::double precision,
     longitude = v.lng::double precision,
     updated_at = now()
@@ -43,14 +46,11 @@ from (values
   ('Marikina - Parang (Tulay Ikot/Lamuan)', 'Sta. Elena High School', null, null),
   ('Marikina - Parang (Tulay Ikot/Lamuan)', 'Calumpang',              null, null)
 ) as v(route_name, point_name, lat, lng)
-join routes r on r.route_name = v.route_name
-where rp.route_id = r.id
-  and rp.point_name = v.point_name
+where s.name = v.point_name
   and v.lat is not null
   and v.lng is not null;
 
 -- Check: stops still on the placeholder coordinates
--- select r.route_name, rp.stop_sequence, rp.point_name
--- from route_points rp join routes r on r.id = rp.route_id
--- where rp.latitude = 14.6507 and rp.longitude = 121.1029
--- order by 1, 2;
+-- select name from stops
+-- where latitude = 14.6507 and longitude = 121.1029
+-- order by name;

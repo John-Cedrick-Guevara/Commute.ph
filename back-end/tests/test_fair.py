@@ -1,207 +1,228 @@
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 
 from app.db.database import SessionLocal
-from app.fair.model import FareMatrix, SavedFare
-from app.fair.services import compute_fare
+from app.fair.model import FareMatrixRow, FareMatrixVersion, SavedFare
+from app.fair.services import compute_fare, current_version_id
 from app.main import app
+from app.stops.model import RouteStop
 from tests.conftest import ADMIN_HEADERS
-from app.route_point.model import RoutePoint
 
 client = TestClient(app, headers=ADMIN_HEADERS)
 
 NON_EXISTENT_ID = "00000000-0000-0000-0000-000000000001"
+JEEP, MODERN = "traditional_jeepney", "modern_jeepney"
 
 
 @pytest.fixture
-def routes():
-    # route_1: A -> B -> C -> D -> E, route_2: D -> X -> B (shares B and D, reversed), route_3: no shared pair
-    stops = {"Fair 1": ["A", "B", "C", "D", "E"], "Fair 2": ["D", "X", "B"], "Fair 3": ["B", "Y"]}
-    created = {}
-    for route_name, names in stops.items():
-        route_id = client.post("/routes/", json={"route_name": route_name}).json()["id"]
-        created[route_name] = {"id": route_id, "points": {}}
-        for seq, name in enumerate(names, 1):
-            point = client.post("/route-points/", json={
-                "route_id": route_id, "point_name": name, "stop_sequence": seq,
-                "latitude": 14.65, "longitude": 121.10,
-            }).json()
-            created[route_name]["points"][name] = point["id"]
-    yield created
-    for route in created.values():
-        client.delete(f"/routes/{route['id']}")
+def network():
+    """
+    Throwaway stops and routes (deleted after the test):
+    Fair 1: A -> B -> C -> D -> E, Fair 2: D -> X -> B (shares B and D, reversed), Fair 3: B -> Y,
+    Fair Modern (modern jeepney): B -> D
+    """
+    stops = {n: client.post("/stops/", json={"name": f"Fair {n}", "latitude": 14.65, "longitude": 121.10}).json()["id"]
+             for n in "ABCDEXY"}
+    layout = {"Fair 1": (JEEP, "ABCDE"), "Fair 2": (JEEP, "DXB"), "Fair 3": (JEEP, "BY"), "Fair Modern": (MODERN, "BD")}
+    routes = {}
+    for name, (puv_type, path) in layout.items():
+        routes[name] = client.post("/routes/", json={"route_name": name, "puv_type": puv_type}).json()["id"]
+        client.put(f"/routes/{routes[name]}/stops", json={"stop_ids": [stops[n] for n in path]})
+    yield stops, routes
+    for route_id in routes.values():
+        client.delete(f"/routes/{route_id}")
+    for stop_id in stops.values():
+        client.delete(f"/stops/{stop_id}")
 
 
-def search(start_id, end_id):
-    return client.get("/fair/routes", params={"start_point_id": start_id, "end_point_id": end_id})
+@pytest.fixture
+def modern_matrix():
+    """A published modern jeepney matrix in effect today (removed after the test)."""
+    created = []
+
+    def publish(regular, effective_from=None):
+        with SessionLocal() as db:
+            version = FareMatrixVersion(
+                puv_type=MODERN, status="published", source_name="Test", published_at=datetime.now(),
+                effective_from=effective_from or date.today() - timedelta(days=1),
+            )
+            db.add(version)
+            db.flush()
+            db.add_all(FareMatrixRow(version_id=version.id, distance_km=km, regular_fare=regular,
+                                     discounted_fare=regular - 2) for km in range(1, 26))
+            db.commit()
+            created.append(version.id)
+            return version.id
+
+    yield publish
+    with SessionLocal() as db:
+        db.execute(delete(FareMatrixVersion).where(FareMatrixVersion.id.in_(created)))
+        db.commit()
+
+
+def search(origin, destination, puv_type=JEEP):
+    return client.get("/fair/routes", params={
+        "origin_stop_id": origin, "destination_stop_id": destination, "puv_type": puv_type})
 
 
 def summary(response):
-    return [(r["route_name"], [p["point_name"] for p in r["points"]]) for r in response.json()]
+    return [(r["route_name"], [s["name"].removeprefix("Fair ") for s in r["stops"]]) for r in response.json()]
 
 
-def test_forward_and_reverse_routes(routes):
-    response = search(routes["Fair 1"]["points"]["B"], routes["Fair 1"]["points"]["D"])
-    assert response.status_code == 200
-    assert summary(response) == [("Fair 1", ["B", "C", "D"]), ("Fair 2", ["B", "X", "D"])]
+def set_distances(route_id, km):
+    with SessionLocal() as db:
+        db.execute(update(RouteStop).where(RouteStop.route_id == route_id, RouteStop.stop_sequence > 1)
+                   .values(distance_from_previous_km=km))
+        db.commit()
 
 
-def test_reverse_input(routes):
-    response = search(routes["Fair 1"]["points"]["D"], routes["Fair 1"]["points"]["B"])
-    assert summary(response) == [("Fair 1", ["D", "C", "B"]), ("Fair 2", ["D", "X", "B"])]
+def saved(origin, destination, puv_type=JEEP):
+    with SessionLocal() as db:
+        return db.execute(select(SavedFare).where(
+            SavedFare.origin_stop_id == origin, SavedFare.destination_stop_id == destination,
+            SavedFare.puv_type == puv_type).order_by(SavedFare.created_at)).scalars().all()
 
 
-def test_points_selected_from_another_route(routes):
-    # IDs from route_2 still match route_1 because the stop names are shared
-    response = search(routes["Fair 2"]["points"]["B"], routes["Fair 2"]["points"]["D"])
-    assert summary(response) == [("Fair 1", ["B", "C", "D"]), ("Fair 2", ["B", "X", "D"])]
+def test_forward_and_reverse_routes(network):
+    stops, _ = network
+    assert summary(search(stops["B"], stops["D"])) == [("Fair 1", ["B", "C", "D"]), ("Fair 2", ["B", "X", "D"])]
+    assert summary(search(stops["D"], stops["B"])) == [("Fair 1", ["D", "C", "B"]), ("Fair 2", ["D", "X", "B"])]
 
 
-def test_no_route_contains_both(routes):
-    response = search(routes["Fair 3"]["points"]["Y"], routes["Fair 1"]["points"]["E"])
+def test_only_routes_of_the_requested_puv_type(network):
+    stops, _ = network
+    assert summary(search(stops["B"], stops["D"], MODERN)) == [("Fair Modern", ["B", "D"])]
+
+
+def test_no_route_contains_both(network):
+    stops, _ = network
+    response = search(stops["Y"], stops["E"])
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_same_start_and_end(routes):
-    point_id = routes["Fair 1"]["points"]["B"]
-    assert search(point_id, point_id).status_code == 400
-
-
-def test_point_not_found(routes):
-    assert search(routes["Fair 1"]["points"]["B"], NON_EXISTENT_ID).status_code == 404
-
-
-def test_invalid_point_id():
+def test_bad_requests(network):
+    stops, _ = network
+    assert search(stops["B"], stops["B"]).status_code == 400
+    assert search(stops["B"], NON_EXISTENT_ID).status_code == 404
+    assert search(stops["B"], stops["D"], "spaceship").status_code == 404
     assert search("invalid", NON_EXISTENT_ID).status_code == 422
 
 
-def test_fare_matrix_follows_fare_guide_pattern():
-    # Guards against typos in the fare_matrix migration: P14 for the first 4 km, +P2 per km after,
+def test_imported_matrix_follows_fare_guide_pattern():
+    # Guards the migrated jeepney matrix: P14 for the first 4 km, +P2 per km after,
     # discounted = 80% of regular rounded to the nearest 25 centavos
     with SessionLocal() as db:
-        fares = db.execute(select(FareMatrix).order_by(FareMatrix.distance_km)).scalars().all()
+        version_id = current_version_id(db, JEEP)
+        rows = db.execute(select(FareMatrixRow).where(FareMatrixRow.version_id == version_id)
+                          .order_by(FareMatrixRow.distance_km)).scalars().all()
 
-    assert [f.distance_km for f in fares] == list(range(1, 26))
-    for fare in fares:
-        regular = 14 + 2 * max(0, fare.distance_km - 4)
-        assert fare.regular_fare == regular, fare.distance_km
-        assert fare.discounted_fare == round(regular * 0.8 * 4) / 4, fare.distance_km
+    assert [r.distance_km for r in rows] == list(range(1, 26))
+    for row in rows:
+        regular = 14 + 2 * max(0, row.distance_km - 4)
+        assert row.regular_fare == regular, row.distance_km
+        assert row.discounted_fare == round(regular * 0.8 * 4) / 4, row.distance_km
 
 
-def set_distances(distances):
+def test_compute_fare_rounds_up_and_never_invents():
     with SessionLocal() as db:
-        for point_id, km in distances.items():
-            db.execute(update(RoutePoint).where(RoutePoint.id == point_id).values(distance_from_previous_km=km))
-        db.commit()
-
-
-def test_compute_fare_rounds_up():
-    with SessionLocal() as db:
-        fares = {fare.distance_km: fare for fare in db.execute(select(FareMatrix)).scalars()}
+        version_id = current_version_id(db, JEEP)
+        fares = {r.distance_km: r for r in db.execute(
+            select(FareMatrixRow).where(FareMatrixRow.version_id == version_id)).scalars()}
 
     assert compute_fare(Decimal("0.4"), fares) == (14, Decimal("11.25"))  # under 1 km -> 1 km
     assert compute_fare(Decimal("4.0"), fares) == (14, Decimal("11.25"))  # exact km stays
     assert compute_fare(Decimal("4.01"), fares) == (16, Decimal("12.75"))
     assert compute_fare(Decimal("25.0"), fares) == (56, Decimal("44.75"))
-    assert compute_fare(Decimal("25.1"), fares) == (58, Decimal("46.50"))  # past the table
-    assert compute_fare(Decimal("27.3"), fares) == (62, Decimal("49.50"))
+    assert compute_fare(Decimal("25.1"), fares) is None  # past the matrix: no fare
 
 
-def test_fare_in_search(routes):
-    p1, p2 = routes["Fair 1"]["points"], routes["Fair 2"]["points"]
-    set_distances({p1["B"]: "1.2", p1["C"]: "2.5", p1["D"]: "2.6", p1["E"]: "9"})
+def test_fare_in_search(network):
+    stops, routes = network
+    set_distances(routes["Fair 1"], "1.7")
 
-    for start, end in (("B", "D"), ("D", "B")):
-        result = search(p1[start], p1[end]).json()
-        fair_1 = next(r for r in result if r["route_name"] == "Fair 1")
-        assert fair_1["distance_km"] == 5.1  # C + D segments, B's segment is before the trip
-        assert (fair_1["regular_fare"], fair_1["discounted_fare"]) == (18, 14.50)  # 5.1 km -> 6 km
+    for origin, destination in (("B", "D"), ("D", "B")):
+        fair_1 = next(r for r in search(stops[origin], stops[destination]).json() if r["route_name"] == "Fair 1")
+        assert fair_1["distance_km"] == 3.4
+        assert (fair_1["regular_fare"], fair_1["discounted_fare"]) == (14, 11.25)
+        assert fair_1["fare_matrix_version_id"] is not None
 
     # Fair 2 has no distances yet, so no fare instead of a wrong one
-    fair_2 = next(r for r in search(p2["B"], p2["D"]).json() if r["route_name"] == "Fair 2")
+    fair_2 = next(r for r in search(stops["B"], stops["D"]).json() if r["route_name"] == "Fair 2")
     assert (fair_2["distance_km"], fair_2["regular_fare"], fair_2["discounted_fare"]) == (None, None, None)
 
 
-def test_editing_a_stop_clears_route_distances(routes):
-    route_id, points = routes["Fair 1"]["id"], routes["Fair 1"]["points"]
-    set_distances({points["B"]: "1.2", points["C"]: "2.5"})
-
-    client.put(f"/route-points/{points['C']}", json={
-        "route_id": route_id, "point_name": "C", "stop_sequence": 3,
-        "latitude": 14.66, "longitude": 121.11,
-    })
-
-    with SessionLocal() as db:
-        distances = db.execute(
-            select(RoutePoint.distance_from_previous_km).where(RoutePoint.route_id == route_id)
-        ).scalars().all()
-    assert distances == [None] * 5
-
-
-def test_sto_nino_to_olopsc():
-    # Copy of the real Marikina - SSS Village stretch with its OpenRouteService segment distances
-    stops = [
-        ("Sto. Nino", None), ("Savemore", "0.618"), ("2nd Street", "0.239"),
-        ("Puregold - Conception", "1.572"), ("Meralco", "0.860"), ("OLOPSC", "0.456"),
-    ]
-    route_id = client.post("/routes/", json={"route_name": "Fair SSS Village copy"}).json()["id"]
-    try:
-        ids = {}
-        for seq, (name, _) in enumerate(stops, 1):
-            ids[name] = client.post("/route-points/", json={
-                "route_id": route_id, "point_name": name, "stop_sequence": seq,
-                "latitude": 14.65, "longitude": 121.10,
-            }).json()["id"]
-        set_distances({ids[name]: km for name, km in stops if km})
-
-        for start, end in (("Sto. Nino", "OLOPSC"), ("OLOPSC", "Sto. Nino")):
-            # Names match the real route too, so pick out the copy
-            result = next(r for r in search(ids[start], ids[end]).json() if r["route_id"] == route_id)
-            assert result["points"][0]["point_name"] == start
-            assert len(result["points"]) == 6
-            assert result["distance_km"] == 3.745
-            assert (result["regular_fare"], result["discounted_fare"]) == (14, 11.25)  # 3.745 km -> 4 km
-    finally:
-        client.delete(f"/routes/{route_id}")
-
-
-def saved_fare(start, end):
-    with SessionLocal() as db:
-        return db.get(SavedFare, (start, end))
-
-
-def test_complete_result_is_saved_and_reused(routes):
-    p1 = routes["Fair 1"]["points"]
-    set_distances({p1["B"]: "1.2", p1["C"]: "2.5", p1["D"]: "2.6", p1["E"]: "9"})
-    # Fair 1 only, so every route in the result has a fare
-    first = search(p1["C"], p1["E"]).json()
-    assert saved_fare("C", "E").routes == first
+def test_complete_result_is_saved_and_reused(network):
+    stops, routes = network
+    set_distances(routes["Fair 1"], "1.7")
+    first = search(stops["C"], stops["E"]).json()  # Fair 1 only, so every route has a fare
+    [row] = saved(stops["C"], stops["E"])
+    assert row.routes == first and row.deleted_at is None
 
     # A hit returns the saved row without searching: prove it by tampering with the row
     with SessionLocal() as db:
-        db.execute(update(SavedFare).where(SavedFare.start_point_name == "C").values(routes=[]))
+        db.execute(update(SavedFare).where(SavedFare.id == row.id).values(routes=[]))
         db.commit()
-    assert search(p1["C"], p1["E"]).json() == []
+    assert search(stops["C"], stops["E"]).json() == []
 
 
-def test_result_missing_a_fare_is_not_saved(routes):
-    p1 = routes["Fair 1"]["points"]
-    # Fair 2 also connects B and D but has no distances yet
-    set_distances({p1["C"]: "2.5", p1["D"]: "2.6"})
-    search(p1["B"], p1["D"])
-    assert saved_fare("B", "D") is None
+def test_result_missing_a_fare_is_not_saved(network):
+    stops, routes = network
+    set_distances(routes["Fair 1"], "1.7")  # Fair 2 also connects B and D but has no distances
+    search(stops["B"], stops["D"])
+    assert saved(stops["B"], stops["D"]) == []
 
 
-def test_editing_routes_clears_saved_fares(routes):
-    p1 = routes["Fair 1"]["points"]
-    set_distances({p1["D"]: "2.6", p1["E"]: "9"})
-    search(p1["D"], p1["E"])
-    assert saved_fare("D", "E") is not None
+def test_editing_routes_clears_saved_fares(network):
+    stops, routes = network
+    set_distances(routes["Fair 1"], "1.7")
+    search(stops["D"], stops["E"])
+    assert saved(stops["D"], stops["E"])
 
-    # Any write to routes / route_points / fare_matrix clears every saved fare (DB trigger)
-    client.put(f"/routes/{routes['Fair 3']['id']}", json={"route_name": "Fair 3 renamed"})
-    assert saved_fare("D", "E") is None
+    client.put(f"/routes/{routes['Fair 3']}", json={"route_name": "Fair 3 renamed", "puv_type": JEEP})
+    assert saved(stops["D"], stops["E"]) == []
+
+
+def test_no_matrix_in_effect_gives_no_fare(network):
+    stops, routes = network
+    set_distances(routes["Fair Modern"], "1.7")
+    [route] = search(stops["B"], stops["D"], MODERN).json()
+    assert route["distance_km"] == 1.7
+    assert (route["regular_fare"], route["fare_matrix_version_id"]) == (None, None)
+    assert saved(stops["B"], stops["D"], MODERN) == []
+
+
+def test_new_matrix_version_retires_old_saved_fares(network, modern_matrix):
+    stops, routes = network
+    set_distances(routes["Fair Modern"], "1.7")
+    v1 = modern_matrix(regular=20)
+    assert search(stops["B"], stops["D"], MODERN).json()[0]["regular_fare"] == 20
+
+    # A version published for later isn't used yet
+    modern_matrix(regular=99, effective_from=date.today() + timedelta(days=30))
+    assert search(stops["B"], stops["D"], MODERN).json()[0]["regular_fare"] == 20
+
+    # Once a newer version is in effect, the old saved fare is soft-deleted and recomputed
+    v2 = modern_matrix(regular=30)
+    assert search(stops["B"], stops["D"], MODERN).json()[0]["regular_fare"] == 30
+    old, new = saved(stops["B"], stops["D"], MODERN)
+    assert (old.fare_matrix_version_id, new.fare_matrix_version_id) == (v1, v2)
+    assert old.deleted_at is not None and new.deleted_at is None
+
+
+def test_nightly_job_retires_fares_of_superseded_versions(network, modern_matrix):
+    stops, routes = network
+    set_distances(routes["Fair Modern"], "1.7")
+    modern_matrix(regular=20)
+    search(stops["B"], stops["D"], MODERN)
+
+    modern_matrix(regular=30)
+    with SessionLocal() as db:
+        db.execute(select(func.retire_saved_fares()))
+        db.commit()
+    [row] = saved(stops["B"], stops["D"], MODERN)
+    assert row.deleted_at is not None

@@ -4,8 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.fair import router as fair_router
-from app.route_point import router as route_point_router
 from app.routes import router as routes_router
+from app.stops import router as stops_router
 
 app = FastAPI(title="Commute.ph API", description="Jeepney fare checker for Marikina City", version="1.0.0")
 
@@ -25,5 +25,5 @@ def health():
 
 
 app.include_router(routes_router.router)
-app.include_router(route_point_router.router)
+app.include_router(stops_router.router)
 app.include_router(fair_router.router)

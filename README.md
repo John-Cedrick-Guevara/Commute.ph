@@ -56,20 +56,24 @@ For a deployed web app, set `VITE_API_URL` to the API's origin.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /route-points/` | Every known stop, one per name, for the stop picker |
-| `GET /fair/routes?start_point_id=&end_point_id=` | Routes connecting two stops, with stops in travel order, distance and fares |
+| `GET /stops/` | Every known stop, for the stop picker |
+| `GET /fair/routes?origin_stop_id=&destination_stop_id=&puv_type=` | Routes of a PUV type connecting two stops, with stops in travel order, distance and fares |
 | `GET /health` | Liveness check |
-| `POST/PUT/DELETE /routes/...` | Manage routes (admin key) |
-| `POST/PUT/DELETE /route-points/...` | Manage stops on a route (admin key) |
+| `POST/PUT/DELETE /stops/...` | Manage stops (admin key) |
+| `POST/PUT/DELETE /routes/...`, `PUT /routes/{id}/stops` | Manage routes and their ordered stops (admin key) |
 
 Public endpoints are rate limited per IP (HTTP 429 with `Retry-After` when exceeded).
 
-Fare results are saved in `saved_fares` per stop pair and reused on the next request. Any change to `routes`, `route_points` or `fare_matrix` clears them (database triggers), so saved fares stay current.
+### Fare matrices and saved fares
+
+- Each PUV type (`puv_types`) has versioned fare matrices (`fare_matrix_versions` + `fare_matrix_rows`) with source and effective date. The version in effect is the newest published one whose effective date (Manila time) has passed.
+- A trip's result is saved in `saved_fares` with the matrix version used and reused while that version is in effect. When a newer version takes effect, the old saved fares are soft-deleted (kept 15 days for a rollback) and recomputed on the next request. A nightly `pg_cron` job retires them and deletes ones older than 15 days.
+- Any change to `routes`, `route_stops` or `stops` deletes all saved fares.
 
 ## Data
 
 - **Migrations:** add a file to `back-end/supabase/migrations`, then from `back-end/` run `supabase db push`.
-- **Stop coordinates:** fill `back-end/supabase/seed/route_points_coordinates.sql` and run it in the Supabase SQL editor.
+- **Stop coordinates:** fill `back-end/supabase/seed/stop_coordinates.sql` and run it in the Supabase SQL editor.
 - **Road distances:** fetch missing stop-to-stop distances (a route has no fare until they are filled):
 
   ```bash

@@ -20,9 +20,9 @@ def test_health():
     ("post", "/routes/"),
     ("put", f"/routes/{NON_EXISTENT_ID}"),
     ("delete", f"/routes/{NON_EXISTENT_ID}"),
-    ("post", "/route-points/"),
-    ("put", f"/route-points/{NON_EXISTENT_ID}"),
-    ("delete", f"/route-points/{NON_EXISTENT_ID}"),
+    ("post", "/stops/"),
+    ("put", f"/stops/{NON_EXISTENT_ID}"),
+    ("delete", f"/stops/{NON_EXISTENT_ID}"),
 ])
 def test_writes_need_admin_key(method, path):
     assert anonymous.request(method, path, json={}).status_code == 401
@@ -30,7 +30,7 @@ def test_writes_need_admin_key(method, path):
 
 
 def test_public_reads_need_no_key():
-    assert anonymous.get("/route-points/").status_code == 200
+    assert anonymous.get("/stops/").status_code == 200
 
 
 def test_cors_allows_the_web_app():

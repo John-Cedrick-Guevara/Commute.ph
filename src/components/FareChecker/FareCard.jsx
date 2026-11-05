@@ -6,7 +6,7 @@ import { calculateFare, getStops } from '../../services/api'
 import styles from './FareCard.module.css'
 
 export default function FareCard({ onResult, onTransportChange }) {
-  // Selected stops ({ id, point_name }); null while the user is still typing
+  // Selected stops ({ id, name }); null while the user is still typing
   const [from, setFrom]             = useState(null)
   const [to, setTo]                 = useState(null)
   const [transport, setTransport]   = useState('Jeepney')
@@ -36,7 +36,7 @@ export default function FareCard({ onResult, onTransportChange }) {
     const e = {}
     if (!from) e.from = 'Please pick a starting point from the suggestions.'
     if (!to)   e.to   = 'Please pick a destination from the suggestions.'
-    if (from && to && from.point_name === to.point_name)
+    if (from && to && from.name === to.name)
       e.to = 'Destination must be different from starting point.'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -86,7 +86,7 @@ export default function FareCard({ onResult, onTransportChange }) {
           placeholder={stopsLoading ? 'Loading stops…' : 'Type a stop, e.g. Riverbanks'}
           stops={stops}
           disabled={stopsLoading}
-          excludeName={to?.point_name}
+          excludeName={to?.name}
           value={from}
           onChange={(v) => { setFrom(v); setErrors((p) => ({ ...p, from: '' })) }}
           error={errors.from}
@@ -110,7 +110,7 @@ export default function FareCard({ onResult, onTransportChange }) {
           placeholder={stopsLoading ? 'Loading stops…' : 'Type a stop, e.g. OLOPSC'}
           stops={stops}
           disabled={stopsLoading}
-          excludeName={from?.point_name}
+          excludeName={from?.name}
           value={to}
           onChange={(v) => { setTo(v); setErrors((p) => ({ ...p, to: '' })) }}
           error={errors.to}

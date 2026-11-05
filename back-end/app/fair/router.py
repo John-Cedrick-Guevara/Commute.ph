@@ -15,17 +15,20 @@ router = APIRouter(
 )
 
 @router.get("/routes", response_model=list[schema.RouteMatchSchema], status_code=status.HTTP_200_OK)
-def get_routes_between_points(
-    start_point_id: uuid.UUID,
-    end_point_id: uuid.UUID,
+def get_routes_between_stops(
+    origin_stop_id: uuid.UUID,
+    destination_stop_id: uuid.UUID,
     session: Annotated[Session, Depends(get_db)],
+    puv_type: str = "traditional_jeepney",
 ):
     """
-    Get every route that contains both points, with the route points from start to end.
+    Get every route of a PUV type that passes both stops, with the stops from origin to
+    destination and the fare.
 
-    :param start_point_id: The ID of the selected start route point
-    :param end_point_id: The ID of the selected end route point
+    :param origin_stop_id: The ID of the starting stop
+    :param destination_stop_id: The ID of the destination stop
+    :param puv_type: The PUV type code
     :param session: SQLAlchemy session object
-    :return: The matching routes and their route points in travel order
+    :return: The matching routes, their stops in travel order, distance and fares
     """
-    return services.get_route_points(session, start_point_id, end_point_id)
+    return services.get_routes_between_stops(session, origin_stop_id, destination_stop_id, puv_type)
